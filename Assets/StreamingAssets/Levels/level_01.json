@@ -4,13 +4,55 @@
   "waves": [
     {
       "waveId": "wave_01",
-      "startTime": 12.0,
+      "startTime": 3.0,
       "enemies": [
         {
           "enemyTypeId": "enemy_basic",
-          "count": 6,
+          "count": 4,
           "spawnPointId": "spawn_a",
           "spawnInterval": 0.75
+        }
+      ]
+    },
+    {
+      "waveId": "wave_02",
+      "startTime": 15.0,
+      "enemies": [
+        {
+          "enemyTypeId": "enemy_fast",
+          "count": 4,
+          "spawnPointId": "spawn_b",
+          "spawnInterval": 0.6
+        }
+      ]
+    },
+    {
+      "waveId": "wave_03",
+      "startTime": 28.0,
+      "enemies": [
+        {
+          "enemyTypeId": "enemy_basic",
+          "count": 4,
+          "spawnPointId": "spawn_a",
+          "spawnInterval": 0.7
+        },
+        {
+          "enemyTypeId": "enemy_fast",
+          "count": 3,
+          "spawnPointId": "spawn_b",
+          "spawnInterval": 0.9
+        }
+      ]
+    },
+    {
+      "waveId": "wave_boss",
+      "startTime": 45.0,
+      "enemies": [
+        {
+          "enemyTypeId": "enemy_boss",
+          "count": 1,
+          "spawnPointId": "spawn_a",
+          "spawnInterval": 0.0
         }
       ]
     }

@@ -1,6 +1,7 @@
 using System;
 using CyberWizard.Core;
 using UnityEngine;
+using CyberWizard.Presentation;
 
 namespace CyberWizard.Gameplay.Player
 {
@@ -12,22 +13,33 @@ namespace CyberWizard.Gameplay.Player
 
         private CharacterController _characterController;
         private Camera _camera;
+        private Vitality _vitality;
+        private WorldHealthBar _healthBar;
 
         public event Action<float, float> HealthChanged;
         public event Action Died;
 
-        public bool IsAlive => CurrentHealth > 0f;
+        public bool IsAlive => _vitality != null && _vitality.IsAlive;
         public Faction Faction => Faction.Player;
         public Transform TargetTransform => transform;
-        public float CurrentHealth { get; private set; }
-        public float MaxHealth => maxHealth;
+        public float CurrentHealth => _vitality != null ? _vitality.Current : 0f;
+        public float MaxHealth => _vitality != null ? _vitality.Maximum : maxHealth;
         public bool InputEnabled { get; set; } = true;
 
         private void Awake()
         {
             _characterController = GetComponent<CharacterController>();
             _camera = Camera.main;
-            CurrentHealth = maxHealth;
+            _vitality = gameObject.AddComponent<Vitality>();
+            _vitality.Changed += HandleVitalityChanged;
+            _vitality.Depleted += HandleDepleted;
+            _vitality.Initialize(maxHealth);
+            _healthBar = WorldHealthBar.Create(
+                transform,
+                new Vector3(0f, 1.5f, 0f),
+                PrototypeMaterialRole.Player,
+                1.5f);
+            _healthBar.SetValue(CurrentHealth, MaxHealth);
         }
 
         private void Update()
@@ -63,18 +75,26 @@ namespace CyberWizard.Gameplay.Player
 
         public void TakeDamage(float amount)
         {
-            if (!IsAlive || amount <= 0f)
-            {
-                return;
-            }
+            _vitality?.TakeDamage(amount);
+        }
 
-            CurrentHealth = Mathf.Max(0f, CurrentHealth - amount);
-            HealthChanged?.Invoke(CurrentHealth, maxHealth);
-            if (CurrentHealth <= 0f)
-            {
-                InputEnabled = false;
-                Died?.Invoke();
-            }
+        private void HandleVitalityChanged(float current, float maximum)
+        {
+            if (_healthBar != null) _healthBar.SetValue(current, maximum);
+            HealthChanged?.Invoke(current, maximum);
+        }
+
+        private void HandleDepleted()
+        {
+            InputEnabled = false;
+            Died?.Invoke();
+        }
+
+        private void OnDestroy()
+        {
+            if (_vitality == null) return;
+            _vitality.Changed -= HandleVitalityChanged;
+            _vitality.Depleted -= HandleDepleted;
         }
     }
 }

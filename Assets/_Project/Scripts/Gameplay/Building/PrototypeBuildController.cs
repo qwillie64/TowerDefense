@@ -6,12 +6,12 @@ using CyberWizard.Gameplay.Towers;
 using CyberWizard.Gameplay.Waves;
 using UnityEngine;
 using CyberWizard.Presentation;
+using CyberWizard.Gameplay.Neutral;
 
 namespace CyberWizard.Gameplay.Building
 {
     public sealed class PrototypeBuildController : MonoBehaviour
     {
-        private const int TowerCost = 25;
         private const int RepairCost = 5;
 
         [SerializeField] private PrototypePlayerController player;
@@ -20,8 +20,11 @@ namespace CyberWizard.Gameplay.Building
         [SerializeField] private ResourceWallet wallet;
         [SerializeField] private TowerRegistry towerRegistry;
         [SerializeField] private WaveDirector waveDirector;
+        [SerializeField] private TowerDefinition[] towerDefinitions;
+        [SerializeField] private SoldierRegistry soldierRegistry;
 
         private GameObject _preview;
+        private Transform _rangePreview;
         private bool _hasGroundPoint;
         private Vector3 _groundPoint;
 
@@ -37,7 +40,9 @@ namespace CyberWizard.Gameplay.Building
             TerritoryController newTerritory,
             ResourceWallet newWallet,
             TowerRegistry newTowerRegistry,
-            WaveDirector newWaveDirector)
+            WaveDirector newWaveDirector,
+            TowerDefinition[] newTowerDefinitions = null,
+            SoldierRegistry newSoldierRegistry = null)
         {
             player = newPlayer;
             gameplayCamera = newCamera;
@@ -45,6 +50,8 @@ namespace CyberWizard.Gameplay.Building
             wallet = newWallet;
             towerRegistry = newTowerRegistry;
             waveDirector = newWaveDirector;
+            towerDefinitions = newTowerDefinitions;
+            soldierRegistry = newSoldierRegistry;
         }
 
         private void Update()
@@ -64,6 +71,11 @@ namespace CyberWizard.Gameplay.Building
             if (Input.GetKeyDown(KeyCode.R))
             {
                 TryRepairNearestTower();
+            }
+
+            if (Input.GetKeyDown(KeyCode.U))
+            {
+                TryUpgradeNearestTower();
             }
 
             if (!IsBuildMode)
@@ -90,6 +102,7 @@ namespace CyberWizard.Gameplay.Building
             _groundPoint.y = 1f;
             _hasGroundPoint = true;
             SelectedElement = element;
+            UpdatePreviewRange();
             return TryBuildTower();
         }
 
@@ -104,7 +117,10 @@ namespace CyberWizard.Gameplay.Building
         private void SetElement(ElementType element)
         {
             SelectedElement = element;
-            StatusMessage = $"已選擇 {GetElementName(element)}塔";
+            var definition = FindDefinition(element);
+            StatusMessage = definition == null
+                ? $"找不到 {GetElementName(element)}塔資料"
+                : $"已選擇 {GetElementName(element)}塔｜傷害 {definition.AttackDamage:0}｜射程 {definition.AttackRange:0.0}";
             Changed?.Invoke();
         }
 
@@ -115,9 +131,19 @@ namespace CyberWizard.Gameplay.Building
             {
                 _preview = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
                 _preview.name = "Tower Build Preview";
-                _preview.transform.localScale = new Vector3(0.8f, 1f, 0.8f);
+                _preview.transform.localScale = Vector3.one;
                 var collider = _preview.GetComponent<Collider>();
                 if (collider != null) collider.enabled = false;
+
+                var rangeObject = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
+                rangeObject.name = "Build Range Preview";
+                rangeObject.transform.SetParent(_preview.transform, false);
+                rangeObject.transform.localPosition = new Vector3(0f, -0.98f, 0f);
+                var rangeCollider = rangeObject.GetComponent<Collider>();
+                if (rangeCollider != null) rangeCollider.enabled = false;
+                PrototypeMaterialLibrary.Apply(rangeObject, PrototypeMaterialRole.Player);
+                _rangePreview = rangeObject.transform;
+                UpdatePreviewRange();
             }
 
             if (_preview != null)
@@ -127,6 +153,18 @@ namespace CyberWizard.Gameplay.Building
 
             StatusMessage = enabled ? "左鍵建塔，右鍵取消" : "按 B 進入建造模式";
             Changed?.Invoke();
+        }
+
+        private void UpdatePreviewRange()
+        {
+            if (_rangePreview == null)
+            {
+                return;
+            }
+
+            var definition = FindDefinition(SelectedElement);
+            var range = definition != null ? definition.AttackRange : 1f;
+            _rangePreview.localScale = new Vector3(range * 2f, 0.015f, range * 2f);
         }
 
         private void UpdateGroundPoint()
@@ -171,6 +209,14 @@ namespace CyberWizard.Gameplay.Building
 
         private bool TryBuildTower()
         {
+            var definition = FindDefinition(SelectedElement);
+            if (definition == null)
+            {
+                StatusMessage = "找不到所選元素塔的資料";
+                Changed?.Invoke();
+                return false;
+            }
+
             var failure = ValidatePlacement();
             if (!string.IsNullOrEmpty(failure))
             {
@@ -179,7 +225,7 @@ namespace CyberWizard.Gameplay.Building
                 return false;
             }
 
-            if (!wallet.TrySpend(TowerCost))
+            if (!wallet.TrySpend(definition.BuildCost))
             {
                 StatusMessage = "資源不足";
                 Changed?.Invoke();
@@ -194,14 +240,14 @@ namespace CyberWizard.Gameplay.Building
             basePart.transform.SetParent(towerObject.transform, false);
             basePart.transform.localScale = new Vector3(1f, 0.5f, 1f);
 
-            var topPart = GameObject.CreatePrimitive(GetTopPrimitive(SelectedElement));
+            var topPart = GameObject.CreatePrimitive(definition.PrototypeTopShape);
             topPart.name = "Top";
             topPart.transform.SetParent(towerObject.transform, false);
             topPart.transform.localPosition = new Vector3(0f, 1.1f, 0f);
             topPart.transform.localScale = new Vector3(0.7f, 0.7f, 0.7f);
 
             var tower = towerObject.AddComponent<TowerController>();
-            tower.Initialize(SelectedElement, waveDirector, towerRegistry);
+            tower.Initialize(definition, waveDirector, towerRegistry, soldierRegistry);
             PrototypeMaterialLibrary.Apply(towerObject, PrototypeMaterialRole.Player);
             StatusMessage = $"已建造 {GetElementName(SelectedElement)}塔";
             Changed?.Invoke();
@@ -216,7 +262,9 @@ namespace CyberWizard.Gameplay.Building
             if (Mathf.Abs(_groundPoint.x) < 1.6f) return "不能建在敵人道路上";
             if (!towerRegistry.CanAdd) return "已達塔數上限";
             if (!towerRegistry.IsPositionFree(_groundPoint, 2f)) return "距離其他塔太近";
-            if (!wallet.CanAfford(TowerCost)) return "資源不足";
+            var definition = FindDefinition(SelectedElement);
+            if (definition == null) return "找不到所選元素塔的資料";
+            if (!wallet.CanAfford(definition.BuildCost)) return "資源不足";
             return string.Empty;
         }
 
@@ -256,6 +304,49 @@ namespace CyberWizard.Gameplay.Building
             Changed?.Invoke();
         }
 
+        public bool TryUpgradeNearestTower()
+        {
+            TowerController nearest = null;
+            var upgraded = false;
+            var bestDistance = 3.2f * 3.2f;
+            foreach (var tower in towerRegistry.Towers)
+            {
+                if (tower == null || !tower.IsAlive || !tower.CanUpgrade)
+                {
+                    continue;
+                }
+
+                var distance = (tower.transform.position - player.transform.position).sqrMagnitude;
+                if (distance < bestDistance)
+                {
+                    bestDistance = distance;
+                    nearest = tower;
+                }
+            }
+
+            if (nearest == null)
+            {
+                StatusMessage = "附近沒有可升級的塔";
+            }
+            else if (!wallet.TrySpend(nearest.UpgradeCost))
+            {
+                StatusMessage = $"升級需要 {nearest.UpgradeCost} 資源";
+            }
+            else if (nearest.TryUpgrade())
+            {
+                StatusMessage = $"{GetElementName(nearest.Element)}塔升至 Lv.{nearest.Level}";
+                upgraded = true;
+            }
+            else
+            {
+                wallet.Add(nearest.UpgradeCost);
+                StatusMessage = "防禦塔無法升級";
+            }
+
+            Changed?.Invoke();
+            return upgraded;
+        }
+
         private static string GetElementName(ElementType element)
         {
             switch (element)
@@ -268,16 +359,23 @@ namespace CyberWizard.Gameplay.Building
             }
         }
 
-        private static PrimitiveType GetTopPrimitive(ElementType element)
+        private TowerDefinition FindDefinition(ElementType element)
         {
-            switch (element)
+            if (towerDefinitions == null)
             {
-                case ElementType.Fire: return PrimitiveType.Sphere;
-                case ElementType.Water: return PrimitiveType.Cube;
-                case ElementType.Wind: return PrimitiveType.Capsule;
-                case ElementType.Earth: return PrimitiveType.Cylinder;
-                default: return PrimitiveType.Cube;
+                return null;
             }
+
+            for (var index = 0; index < towerDefinitions.Length; index++)
+            {
+                var definition = towerDefinitions[index];
+                if (definition != null && definition.Element == element)
+                {
+                    return definition;
+                }
+            }
+
+            return null;
         }
     }
 }

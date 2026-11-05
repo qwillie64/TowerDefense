@@ -68,6 +68,11 @@ namespace CyberWizard.Gameplay.Capture
                 _captureBar.SetFillRole(PrototypeMaterialRole.Player);
                 _captureBar.SetValue(1f, 1f);
             }
+            PrototypePulseEffect.Spawn(
+                captureZone.transform.position + Vector3.up * 0.4f,
+                PrototypeMaterialRole.Player,
+                new Vector3(4f, 0.3f, 4f),
+                0.5f);
             Captured?.Invoke();
         }
 

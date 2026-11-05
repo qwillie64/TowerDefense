@@ -19,6 +19,7 @@ namespace CyberWizard.Gameplay.GameFlow
         [SerializeField] private PrototypeComboSystem comboSystem;
         [SerializeField] private NeutralOutpostModule neutralModule;
         [SerializeField] private WaveDirector waveDirector;
+        [SerializeField] private PrototypeGameFlowController gameFlow;
 
         public void Configure(
             PrototypePlayerController newPlayer,
@@ -26,7 +27,8 @@ namespace CyberWizard.Gameplay.GameFlow
             PrototypeBuildController newBuildController,
             PrototypeComboSystem newComboSystem,
             NeutralOutpostModule newNeutralModule,
-            WaveDirector newWaveDirector)
+            WaveDirector newWaveDirector,
+            PrototypeGameFlowController newGameFlow)
         {
             player = newPlayer;
             territory = newTerritory;
@@ -34,20 +36,48 @@ namespace CyberWizard.Gameplay.GameFlow
             comboSystem = newComboSystem;
             neutralModule = newNeutralModule;
             waveDirector = newWaveDirector;
+            gameFlow = newGameFlow;
         }
 
         private void Start()
         {
             if (HasCommandLineArgument("-smokeTest"))
             {
-                StartCoroutine(RunSmokeScenario());
+                StartCoroutine(HasCommandLineArgument("-enemyOutpostSmoke")
+                    ? RunEnemyOutpostScenario()
+                    : RunSmokeScenario());
             }
+        }
+
+        private IEnumerator RunEnemyOutpostScenario()
+        {
+            yield return null;
+            if (neutralModule == null || !neutralModule.FeatureEnabled || neutralModule.Outpost == null)
+            {
+                Debug.LogError("[MvpSmoke] EnemyOutpostTestUnavailable");
+                yield break;
+            }
+
+            neutralModule.Outpost.CaptureByEnemy();
+            yield return new WaitUntil(() => neutralModule.Outpost.SoldierCount > 0);
+            Debug.Log($"[MvpSmoke] EnemyOutpostSoldierSpawned count={neutralModule.Outpost.SoldierCount}");
         }
 
         private IEnumerator RunSmokeScenario()
         {
             yield return new WaitUntil(() => territory != null && territory.IsCaptured);
             Debug.Log("[MvpSmoke] TerritoryCaptured");
+
+            if (gameFlow != null)
+            {
+                var elapsedBeforePause = waveDirector.ElapsedTime;
+                gameFlow.TogglePause();
+                yield return new WaitForSecondsRealtime(0.15f);
+                var pausePassed = gameFlow.CurrentPhase == CyberWizard.Core.GamePhase.Paused &&
+                                  Mathf.Approximately(elapsedBeforePause, waveDirector.ElapsedTime);
+                gameFlow.TogglePause();
+                Debug.Log($"[MvpSmoke] PausePassed={pausePassed}");
+            }
 
             var fireBuilt = buildController.TryBuildAt(
                 new Vector3(2.2f, 1f, -1f),
@@ -56,6 +86,10 @@ namespace CyberWizard.Gameplay.GameFlow
                 new Vector3(4.4f, 1f, -1f),
                 ElementType.Wind);
             Debug.Log($"[MvpSmoke] TowersBuilt fire={fireBuilt} wind={windBuilt}");
+
+            TeleportPlayer(new Vector3(2.2f, 1f, -1f));
+            var towerUpgraded = buildController.TryUpgradeNearestTower();
+            Debug.Log($"[MvpSmoke] TowerUpgraded={towerUpgraded}");
 
             if (neutralModule != null && neutralModule.FeatureEnabled && neutralModule.Outpost != null)
             {

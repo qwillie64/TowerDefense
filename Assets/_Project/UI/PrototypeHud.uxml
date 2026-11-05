@@ -13,9 +13,12 @@
         <ui:Label name="combo-label" text="連攜：等待元素塔" class="hud-line" />
         <ui:Label name="neutral-label" text="中立據點：未佔領" class="hud-line" />
         <ui:Label name="camera-label" text="視角：戰術俯視（Tab 切換）" class="hud-line" />
+        <ui:Label name="boss-label" text="關卡王：--" class="hud-line boss-line hidden" />
         <ui:Label name="message-label" text="正在載入關卡資料" class="hud-message" />
         <ui:Button name="start-button" text="開始遊戲" class="hud-button" />
+        <ui:Button name="neutral-toggle-button" text="中立據點模組：開啟" class="hud-button" />
+        <ui:Button name="pause-button" text="暫停遊戲" class="hud-button hidden" />
         <ui:Button name="replay-button" text="再次遊玩" class="hud-button hidden" />
-        <ui:Label text="WASD 移動｜Tab 切換視角｜B 建造｜1-4 元素｜左鍵放置｜R 修理｜Q 連攜" class="hud-help" />
+        <ui:Label text="WASD 移動｜Tab 視角｜Esc 暫停｜B 建造｜1-4 元素｜T 射程｜R 修理｜U 升級｜Q 連攜" class="hud-help" />
     </ui:VisualElement>
 </ui:UXML>

@@ -13,6 +13,7 @@ using CyberWizard.Gameplay.Resources;
 using CyberWizard.Gameplay.Towers;
 using CyberWizard.Gameplay.Waves;
 using CyberWizard.Presentation;
+using CyberWizard.Data;
 using UnityEditor;
 using UnityEditor.Build.Reporting;
 using UnityEditor.SceneManagement;
@@ -28,12 +29,17 @@ namespace CyberWizard.EditorTools
         private const string PanelSettingsPath = "Assets/_Project/UI/PrototypePanelSettings.asset";
         private const string HudUxmlPath = "Assets/_Project/UI/PrototypeHud.uxml";
         private const string PaletteFolder = "Assets/_Project/Resources/PrototypePalette";
+        private const string EnemyDataFolder = "Assets/_Project/Data/Enemies";
+        private const string TowerDataFolder = "Assets/_Project/Data/Towers";
 
         [MenuItem("CyberWizard/Build Vertical Slice Scene")]
         public static void Build()
         {
             EnsureAssetFolders();
             CreatePrototypeMaterials();
+            var enemyDefinitions = CreateEnemyDefinitions();
+            var enemyBehaviorSettings = CreateEnemyBehaviorSettings();
+            var towerDefinitions = CreateTowerDefinitions();
             AssetDatabase.SaveAssets();
             AssetDatabase.Refresh(ImportAssetOptions.ForceSynchronousImport);
 
@@ -42,7 +48,11 @@ namespace CyberWizard.EditorTools
 
             var camera = CreateCamera();
             CreateDirectionalLight();
-            CreateEnvironment(out var spawnPoint, out var destination, out var baseCore);
+            CreateEnvironment(
+                out var spawnPoint,
+                out var secondarySpawnPoint,
+                out var destination,
+                out var baseCore);
             var player = CreatePlayer();
             var cameraController = camera.gameObject.AddComponent<PrototypeCameraFollow>();
             cameraController.Configure(
@@ -57,17 +67,25 @@ namespace CyberWizard.EditorTools
             var towerRegistry = systems.AddComponent<TowerRegistry>();
             towerRegistry.Configure(4);
 
+            var soldierRegistry = systems.AddComponent<SoldierRegistry>();
+
             var enemySpawner = systems.AddComponent<EnemySpawner>();
 
             var waveDirector = systems.AddComponent<WaveDirector>();
             waveDirector.Configure(enemySpawner);
+
+            var rewardService = systems.AddComponent<RewardService>();
+            rewardService.Configure(wallet, waveDirector);
 
             enemySpawner.Configure(
                 spawnPoint,
                 destination,
                 towerRegistry,
                 player,
-                baseCore);
+                baseCore,
+                enemyDefinitions,
+                enemyBehaviorSettings,
+                secondarySpawnPoint);
 
             var buildController = systems.AddComponent<PrototypeBuildController>();
             buildController.Configure(
@@ -76,12 +94,24 @@ namespace CyberWizard.EditorTools
                 territory,
                 wallet,
                 towerRegistry,
-                waveDirector);
+                waveDirector,
+                towerDefinitions,
+                soldierRegistry);
 
             var comboSystem = systems.AddComponent<PrototypeComboSystem>();
-            comboSystem.Configure(camera, towerRegistry, waveDirector);
+            comboSystem.Configure(
+                camera,
+                towerRegistry,
+                waveDirector,
+                soldierRegistry,
+                player);
 
-            var neutralModule = CreateNeutralOutpostModule(player, waveDirector);
+            var neutralModule = CreateNeutralOutpostModule(
+                player,
+                waveDirector,
+                towerRegistry,
+                baseCore,
+                soldierRegistry);
             enemySpawner.SetNeutralModule(neutralModule);
 
             var gameFlow = systems.AddComponent<PrototypeGameFlowController>();
@@ -91,6 +121,9 @@ namespace CyberWizard.EditorTools
                 baseCore,
                 player);
 
+            var audioService = systems.AddComponent<PrototypeAudioService>();
+            audioService.Configure(gameFlow, waveDirector, territory);
+
             var smokeDriver = systems.AddComponent<PrototypeMvpSmokeDriver>();
             smokeDriver.Configure(
                 player,
@@ -98,7 +131,8 @@ namespace CyberWizard.EditorTools
                 buildController,
                 comboSystem,
                 neutralModule,
-                waveDirector);
+                waveDirector,
+                gameFlow);
 
             CreateHud(
                 gameFlow,
@@ -195,6 +229,155 @@ namespace CyberWizard.EditorTools
             EnsureFolder("Assets/_Project/UI");
             EnsureFolder("Assets/_Project/Resources");
             EnsureFolder(PaletteFolder);
+            EnsureFolder(EnemyDataFolder);
+            EnsureFolder(TowerDataFolder);
+        }
+
+        private static TowerDefinition[] CreateTowerDefinitions()
+        {
+            return new[]
+            {
+                CreateOrUpdateTowerDefinition(
+                    "TowerFire.asset", "tower_fire", ElementType.Fire,
+                    90f, 24f, 6.5f, 0.9f, 16f, 2.2f, 25, PrimitiveType.Sphere),
+                CreateOrUpdateTowerDefinition(
+                    "TowerWater.asset", "tower_water", ElementType.Water,
+                    105f, 16f, 7f, 0.75f, 14f, 1.6f, 25, PrimitiveType.Cube),
+                CreateOrUpdateTowerDefinition(
+                    "TowerWind.asset", "tower_wind", ElementType.Wind,
+                    80f, 14f, 6f, 0.55f, 19f, 1.4f, 25, PrimitiveType.Capsule),
+                CreateOrUpdateTowerDefinition(
+                    "TowerEarth.asset", "tower_earth", ElementType.Earth,
+                    130f, 32f, 6f, 1.35f, 12f, 2.8f, 25, PrimitiveType.Cylinder)
+            };
+        }
+
+        private static TowerDefinition CreateOrUpdateTowerDefinition(
+            string fileName,
+            string typeId,
+            ElementType element,
+            float durability,
+            float damage,
+            float range,
+            float interval,
+            float projectileSpeed,
+            float shotCost,
+            int buildCost,
+            PrimitiveType topShape)
+        {
+            var path = $"{TowerDataFolder}/{fileName}";
+            var definition = AssetDatabase.LoadAssetAtPath<TowerDefinition>(path);
+            if (definition == null)
+            {
+                definition = ScriptableObject.CreateInstance<TowerDefinition>();
+                AssetDatabase.CreateAsset(definition, path);
+            }
+
+            definition.Configure(
+                typeId,
+                element,
+                durability,
+                damage,
+                range,
+                interval,
+                projectileSpeed,
+                shotCost,
+                buildCost,
+                topShape);
+            EditorUtility.SetDirty(definition);
+            return definition;
+        }
+
+        private static EnemyDefinition[] CreateEnemyDefinitions()
+        {
+            var basic = CreateOrUpdateEnemyDefinition(
+                $"{EnemyDataFolder}/EnemyBasic.asset",
+                "enemy_basic",
+                "基礎敵人",
+                100f,
+                2.5f,
+                10f,
+                5,
+                1f,
+                PrimitiveType.Capsule,
+                new Vector3(0.8f, 1f, 0.8f));
+
+            var fast = CreateOrUpdateEnemyDefinition(
+                $"{EnemyDataFolder}/EnemyFast.asset",
+                "enemy_fast",
+                "快速敵人",
+                65f,
+                4.2f,
+                7f,
+                7,
+                0.75f,
+                PrimitiveType.Sphere,
+                new Vector3(0.9f, 0.9f, 0.9f));
+
+            var boss = CreateOrUpdateEnemyDefinition(
+                $"{EnemyDataFolder}/EnemyBoss.asset",
+                "enemy_boss",
+                "關卡王",
+                350f,
+                1.6f,
+                25f,
+                50,
+                1.2f,
+                PrimitiveType.Cube,
+                new Vector3(2f, 2.5f, 2f),
+                true);
+
+            return new[] { basic, fast, boss };
+        }
+
+        private static EnemyBehaviorSettings CreateEnemyBehaviorSettings()
+        {
+            var path = $"{EnemyDataFolder}/EnemyBehaviorSettings.asset";
+            var settings = AssetDatabase.LoadAssetAtPath<EnemyBehaviorSettings>(path);
+            if (settings == null)
+            {
+                settings = ScriptableObject.CreateInstance<EnemyBehaviorSettings>();
+                AssetDatabase.CreateAsset(settings, path);
+            }
+
+            settings.Configure(0.15f, 0.15f, 3f, 2.6f);
+            EditorUtility.SetDirty(settings);
+            return settings;
+        }
+
+        private static EnemyDefinition CreateOrUpdateEnemyDefinition(
+            string path,
+            string typeId,
+            string displayName,
+            float health,
+            float speed,
+            float damage,
+            int reward,
+            float interval,
+            PrimitiveType shape,
+            Vector3 scale,
+            bool boss = false)
+        {
+            var definition = AssetDatabase.LoadAssetAtPath<EnemyDefinition>(path);
+            if (definition == null)
+            {
+                definition = ScriptableObject.CreateInstance<EnemyDefinition>();
+                AssetDatabase.CreateAsset(definition, path);
+            }
+
+            definition.Configure(
+                typeId,
+                displayName,
+                health,
+                speed,
+                damage,
+                reward,
+                interval,
+                shape,
+                scale,
+                boss);
+            EditorUtility.SetDirty(definition);
+            return definition;
         }
 
         private static void CreatePrototypeMaterials()
@@ -274,6 +457,7 @@ namespace CyberWizard.EditorTools
 
         private static void CreateEnvironment(
             out Transform spawnPoint,
+            out Transform secondarySpawnPoint,
             out Transform destination,
             out BaseCore baseCore)
         {
@@ -296,6 +480,17 @@ namespace CyberWizard.EditorTools
             spawnOrigin.transform.SetParent(spawnMarker.transform);
             spawnOrigin.transform.localPosition = new Vector3(0f, 0.85f, 0f);
             spawnPoint = spawnOrigin.transform;
+
+            var secondarySpawnMarker = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
+            secondarySpawnMarker.name = "Spawn Point B";
+            secondarySpawnMarker.transform.SetParent(environment.transform);
+            secondarySpawnMarker.transform.position = new Vector3(-10f, 0.15f, -22f);
+            secondarySpawnMarker.transform.localScale = new Vector3(1.2f, 0.15f, 1.2f);
+            PrototypeMaterialLibrary.Apply(secondarySpawnMarker, PrototypeMaterialRole.Enemy);
+            var secondarySpawnOrigin = new GameObject("Enemy Spawn Origin B");
+            secondarySpawnOrigin.transform.SetParent(secondarySpawnMarker.transform);
+            secondarySpawnOrigin.transform.localPosition = new Vector3(0f, 0.85f, 0f);
+            secondarySpawnPoint = secondarySpawnOrigin.transform;
 
             var goalMarker = GameObject.CreatePrimitive(PrimitiveType.Cube);
             goalMarker.name = "Goal";
@@ -350,7 +545,10 @@ namespace CyberWizard.EditorTools
 
         private static NeutralOutpostModule CreateNeutralOutpostModule(
             PrototypePlayerController player,
-            WaveDirector waveDirector)
+            WaveDirector waveDirector,
+            TowerRegistry towerRegistry,
+            BaseCore baseCore,
+            SoldierRegistry soldierRegistry)
         {
             var moduleObject = new GameObject("Neutral Outpost Module");
             var outpostObject = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
@@ -368,7 +566,14 @@ namespace CyberWizard.EditorTools
             spawnPoint.transform.localPosition = new Vector3(0f, 1.4f, 1.5f);
 
             var outpost = outpostObject.AddComponent<NeutralOutpost>();
-            outpost.Configure(captureZone, spawnPoint.transform, waveDirector);
+            outpost.Configure(
+                captureZone,
+                spawnPoint.transform,
+                waveDirector,
+                player,
+                towerRegistry,
+                baseCore,
+                soldierRegistry);
 
             var module = moduleObject.AddComponent<NeutralOutpostModule>();
             module.Configure(true, outpost);

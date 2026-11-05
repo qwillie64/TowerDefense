@@ -40,8 +40,13 @@ namespace CyberWizard.Presentation
         private Label _neutralLabel;
         private Label _messageLabel;
         private Label _cameraLabel;
+        private Label _bossLabel;
         private Button _startButton;
         private Button _replayButton;
+        private Button _pauseButton;
+        private Button _neutralToggleButton;
+        private string _waveNotice = string.Empty;
+        private float _waveNoticeUntil;
 
         public void Configure(
             PrototypeGameFlowController newGameFlow,
@@ -84,14 +89,19 @@ namespace CyberWizard.Presentation
             _neutralLabel = root.Q<Label>("neutral-label");
             _messageLabel = root.Q<Label>("message-label");
             _cameraLabel = root.Q<Label>("camera-label");
+            _bossLabel = root.Q<Label>("boss-label");
             _startButton = root.Q<Button>("start-button");
             _replayButton = root.Q<Button>("replay-button");
+            _pauseButton = root.Q<Button>("pause-button");
+            _neutralToggleButton = root.Q<Button>("neutral-toggle-button");
         }
 
         private void Start()
         {
             if (gameFlow != null) gameFlow.PhaseChanged += HandlePhaseChanged;
             if (waveDirector != null) waveDirector.StatsChanged += Refresh;
+            if (waveDirector != null) waveDirector.WaveBegan += HandleWaveBegan;
+            if (waveDirector != null) waveDirector.WaveCleared += HandleWaveCleared;
             if (player != null) player.HealthChanged += HandleHealthChanged;
             if (baseCore != null) baseCore.HealthChanged += HandleHealthChanged;
             if (wallet != null) wallet.Changed += HandleIntegerChanged;
@@ -106,6 +116,8 @@ namespace CyberWizard.Presentation
             if (cameraController != null) cameraController.ModeChanged += HandleCameraModeChanged;
             if (_startButton != null) _startButton.clicked += HandleStartClicked;
             if (_replayButton != null) _replayButton.clicked += HandleReplayClicked;
+            if (_pauseButton != null) _pauseButton.clicked += HandlePauseClicked;
+            if (_neutralToggleButton != null) _neutralToggleButton.clicked += HandleNeutralToggleClicked;
 
             Refresh();
         }
@@ -118,7 +130,8 @@ namespace CyberWizard.Presentation
 
         private void HandlePhaseChanged(GamePhase phase)
         {
-            if ((phase == GamePhase.Ended || phase == GamePhase.Defeat || phase == GamePhase.Failed) &&
+            if ((phase == GamePhase.Paused || phase == GamePhase.Ended ||
+                 phase == GamePhase.Defeat || phase == GamePhase.Failed) &&
                 cameraController != null)
             {
                 cameraController.SetMode(PrototypeCameraMode.Overview);
@@ -132,6 +145,38 @@ namespace CyberWizard.Presentation
         private void HandleCameraModeChanged(PrototypeCameraMode mode) => Refresh();
         private void HandleStartClicked() => gameFlow?.StartGame();
         private void HandleReplayClicked() => gameFlow?.Replay();
+        private void HandlePauseClicked() => gameFlow?.TogglePause();
+        private void HandleNeutralToggleClicked()
+        {
+            if (neutralModule == null || gameFlow.CurrentPhase != GamePhase.Ready)
+            {
+                return;
+            }
+
+            neutralModule.SetFeatureEnabled(!neutralModule.FeatureEnabled);
+            Refresh();
+        }
+
+        private void HandleWaveBegan(string waveId, int waveNumber)
+        {
+            _waveNotice = waveId == "wave_boss"
+                ? "警告：關卡王已出現"
+                : $"第 {waveNumber} 波開始";
+            _waveNoticeUntil = Time.unscaledTime + 2.5f;
+            Refresh();
+        }
+
+        private void HandleWaveCleared(string waveId, int waveNumber)
+        {
+            if (waveNumber >= waveDirector.TotalWaveCount)
+            {
+                return;
+            }
+
+            _waveNotice = $"第 {waveNumber} 波完成，進入整備時間";
+            _waveNoticeUntil = Time.unscaledTime + 3f;
+            Refresh();
+        }
 
         private void Refresh()
         {
@@ -155,6 +200,15 @@ namespace CyberWizard.Presentation
                 _cameraLabel.text = cameraController.CurrentMode == PrototypeCameraMode.Overview
                     ? "視角：戰術俯視（Tab 切換）"
                     : "視角：第三人稱肩後（滑鼠控制）";
+            if (_bossLabel != null)
+            {
+                var boss = waveDirector.ActiveBoss;
+                _bossLabel.style.display = boss != null && boss.IsAlive
+                    ? DisplayStyle.Flex
+                    : DisplayStyle.None;
+                if (boss != null)
+                    _bossLabel.text = $"關卡王：{boss.CurrentHealth:0}/{boss.MaxHealth:0}";
+            }
 
             if (_startButton != null)
                 _startButton.style.display = gameFlow.CurrentPhase == GamePhase.Ready
@@ -165,6 +219,22 @@ namespace CyberWizard.Presentation
                     gameFlow.CurrentPhase == GamePhase.Ended || gameFlow.CurrentPhase == GamePhase.Defeat
                         ? DisplayStyle.Flex
                         : DisplayStyle.None;
+            if (_pauseButton != null)
+            {
+                var canPause = gameFlow.CurrentPhase == GamePhase.Wave ||
+                               gameFlow.CurrentPhase == GamePhase.Paused;
+                _pauseButton.style.display = canPause ? DisplayStyle.Flex : DisplayStyle.None;
+                _pauseButton.text = gameFlow.CurrentPhase == GamePhase.Paused ? "繼續遊戲" : "暫停遊戲";
+            }
+            if (_neutralToggleButton != null)
+            {
+                _neutralToggleButton.style.display = gameFlow.CurrentPhase == GamePhase.Ready
+                    ? DisplayStyle.Flex
+                    : DisplayStyle.None;
+                _neutralToggleButton.text = neutralModule != null && neutralModule.FeatureEnabled
+                    ? "中立據點模組：開啟"
+                    : "中立據點模組：關閉";
+            }
 
             RefreshDynamicGameplayStatus();
 
@@ -179,15 +249,24 @@ namespace CyberWizard.Presentation
                         _messageLabel.text = "按下開始遊戲進入關卡";
                         break;
                     case GamePhase.Wave:
-                        _messageLabel.text = waveDirector.StartedWaveCount == 0
-                            ? "準備防線並等待第一波敵人"
-                            : "防守主堡，擊退所有敵人";
+                        if (Time.unscaledTime < _waveNoticeUntil)
+                            _messageLabel.text = _waveNotice;
+                        else
+                            _messageLabel.text = waveDirector.StartedWaveCount == 0
+                                ? "準備防線並等待第一波敵人"
+                                : "防守主堡，擊退所有敵人";
+                        break;
+                    case GamePhase.Paused:
+                        _messageLabel.text = "遊戲已暫停，按 Esc 或繼續遊戲恢復";
                         break;
                     case GamePhase.Ended:
-                        _messageLabel.text = "勝利：所有波次已清除";
+                        _messageLabel.text =
+                            $"勝利：{waveDirector.TotalWaveCount} 波已清除｜" +
+                            $"時間 {waveDirector.ElapsedTime:0.0} 秒｜" +
+                            $"主堡 {baseCore.CurrentHealth:0}/{baseCore.MaxHealth:0}";
                         break;
                     case GamePhase.Defeat:
-                        _messageLabel.text = "失敗：玩家或主堡已被擊破";
+                        _messageLabel.text = $"失敗：{gameFlow.DefeatReason}";
                         break;
                     case GamePhase.Failed:
                         _messageLabel.text = gameFlow.FailureReason;
@@ -217,7 +296,7 @@ namespace CyberWizard.Presentation
                 else if (neutralModule.Outpost.IsAllied)
                     _neutralLabel.text = $"中立據點：已投靠　士兵 {neutralModule.Outpost.SoldierCount}";
                 else if (neutralModule.Outpost.IsEnemyControlled)
-                    _neutralLabel.text = "中立據點：已被敵方佔領";
+                    _neutralLabel.text = $"中立據點：敵方控制　紅軍 {neutralModule.Outpost.SoldierCount}";
                 else
                     _neutralLabel.text =
                         $"中立據點佔領：{neutralModule.Outpost.CaptureZone.NormalizedProgress * 100f:0}%";
@@ -229,9 +308,13 @@ namespace CyberWizard.Presentation
             if (_timerLabel == null || waveDirector == null || gameFlow == null)
                 return;
 
-            _timerLabel.text = gameFlow.CurrentPhase == GamePhase.Wave && waveDirector.StartedWaveCount == 0
-                ? $"第一波倒數：{waveDirector.TimeUntilNextWave:0.0} 秒"
-                : $"關卡時間：{waveDirector.ElapsedTime:0.0} 秒";
+            if (gameFlow.CurrentPhase == GamePhase.Paused)
+                _timerLabel.text = "關卡已暫停";
+            else if (gameFlow.CurrentPhase == GamePhase.Wave &&
+                     waveDirector.StartedWaveCount < waveDirector.TotalWaveCount)
+                _timerLabel.text = $"下一波倒數：{waveDirector.TimeUntilNextWave:0.0} 秒";
+            else
+                _timerLabel.text = $"關卡時間：{waveDirector.ElapsedTime:0.0} 秒";
         }
 
         private static string GetPhaseText(GamePhase phase)
@@ -241,6 +324,7 @@ namespace CyberWizard.Presentation
                 case GamePhase.Starting: return "開始";
                 case GamePhase.Ready: return "等待開始";
                 case GamePhase.Wave: return "防守中";
+                case GamePhase.Paused: return "暫停";
                 case GamePhase.Ended: return "勝利";
                 case GamePhase.Defeat: return "失敗";
                 case GamePhase.Failed: return "載入失敗";
@@ -252,6 +336,8 @@ namespace CyberWizard.Presentation
         {
             if (gameFlow != null) gameFlow.PhaseChanged -= HandlePhaseChanged;
             if (waveDirector != null) waveDirector.StatsChanged -= Refresh;
+            if (waveDirector != null) waveDirector.WaveBegan -= HandleWaveBegan;
+            if (waveDirector != null) waveDirector.WaveCleared -= HandleWaveCleared;
             if (player != null) player.HealthChanged -= HandleHealthChanged;
             if (baseCore != null) baseCore.HealthChanged -= HandleHealthChanged;
             if (wallet != null) wallet.Changed -= HandleIntegerChanged;
@@ -266,6 +352,8 @@ namespace CyberWizard.Presentation
             if (cameraController != null) cameraController.ModeChanged -= HandleCameraModeChanged;
             if (_startButton != null) _startButton.clicked -= HandleStartClicked;
             if (_replayButton != null) _replayButton.clicked -= HandleReplayClicked;
+            if (_pauseButton != null) _pauseButton.clicked -= HandlePauseClicked;
+            if (_neutralToggleButton != null) _neutralToggleButton.clicked -= HandleNeutralToggleClicked;
         }
     }
 }

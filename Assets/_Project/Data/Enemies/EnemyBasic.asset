@@ -1,0 +1,24 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: ec1ac9427a4f71940849c1dc1766019c, type: 3}
+  m_Name: EnemyBasic
+  m_EditorClassIdentifier: 
+  enemyTypeId: enemy_basic
+  displayName: "\u57FA\u790E\u6575\u4EBA"
+  maxHealth: 100
+  moveSpeed: 2.5
+  contactDamage: 10
+  reward: 5
+  attackInterval: 1
+  prototypeShape: 1
+  prototypeScale: {x: 0.8, y: 1, z: 0.8}
+  isBoss: 0
