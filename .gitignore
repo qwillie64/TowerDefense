@@ -75,3 +75,6 @@ Desktop.ini
 *.bak
 *.swp
 *.orig
+
+# Local planning docs (not for the repo)
+/CyberWizard_TD遊戲企劃書.docx
