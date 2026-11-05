@@ -15,35 +15,43 @@ namespace CyberWizard.Gameplay.GameFlow
         public bool IsAlive => CurrentHealth > 0f;
         public Faction Faction => Faction.Player;
         public Transform TargetTransform => transform;
-        public float CurrentHealth { get; private set; }
-        public float MaxHealth => maxHealth;
+        public float CurrentHealth => _vitality != null ? _vitality.Current : 0f;
+        public float MaxHealth => _vitality != null ? _vitality.Maximum : maxHealth;
         private WorldHealthBar _healthBar;
+        private Vitality _vitality;
 
         private void Awake()
         {
-            CurrentHealth = maxHealth;
+            _vitality = gameObject.AddComponent<Vitality>();
+            _vitality.Changed += HandleVitalityChanged;
+            _vitality.Depleted += HandleDepleted;
+            _vitality.Initialize(maxHealth);
             _healthBar = WorldHealthBar.Create(
                 transform,
                 new Vector3(0f, 1.4f, 0f),
                 PrototypeMaterialRole.Player,
                 3f);
-            _healthBar.SetValue(CurrentHealth, maxHealth);
+            _healthBar.SetValue(CurrentHealth, MaxHealth);
         }
 
         public void TakeDamage(float amount)
         {
-            if (!IsAlive || amount <= 0f)
-            {
-                return;
-            }
+            _vitality?.TakeDamage(amount);
+        }
 
-            CurrentHealth = Mathf.Max(0f, CurrentHealth - amount);
-            if (_healthBar != null) _healthBar.SetValue(CurrentHealth, maxHealth);
-            HealthChanged?.Invoke(CurrentHealth, maxHealth);
-            if (CurrentHealth <= 0f)
-            {
-                Destroyed?.Invoke();
-            }
+        private void HandleVitalityChanged(float current, float maximum)
+        {
+            if (_healthBar != null) _healthBar.SetValue(current, maximum);
+            HealthChanged?.Invoke(current, maximum);
+        }
+
+        private void HandleDepleted() => Destroyed?.Invoke();
+
+        private void OnDestroy()
+        {
+            if (_vitality == null) return;
+            _vitality.Changed -= HandleVitalityChanged;
+            _vitality.Depleted -= HandleDepleted;
         }
     }
 }

@@ -18,6 +18,11 @@ namespace CyberWizard.Presentation
             var root = new GameObject("World Health Bar");
             root.transform.SetParent(owner, false);
             root.transform.localPosition = localOffset;
+            var ownerScale = owner.lossyScale;
+            root.transform.localScale = new Vector3(
+                ownerScale.x == 0f ? 1f : 1f / Mathf.Abs(ownerScale.x),
+                ownerScale.y == 0f ? 1f : 1f / Mathf.Abs(ownerScale.y),
+                ownerScale.z == 0f ? 1f : 1f / Mathf.Abs(ownerScale.z));
 
             var bar = root.AddComponent<WorldHealthBar>();
             bar._width = Mathf.Max(0.5f, width);

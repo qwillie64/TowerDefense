@@ -22,6 +22,7 @@ namespace CyberWizard.Gameplay.GameFlow
 
         public GamePhase CurrentPhase { get; private set; } = GamePhase.Starting;
         public string FailureReason { get; private set; } = string.Empty;
+        public string DefeatReason { get; private set; } = string.Empty;
 
         public void Configure(
             WaveDirector newWaveDirector,
@@ -38,6 +39,15 @@ namespace CyberWizard.Gameplay.GameFlow
         private void Start()
         {
             BeginFlow();
+        }
+
+        private void Update()
+        {
+            if (Input.GetKeyDown(KeyCode.Escape) &&
+                (CurrentPhase == GamePhase.Wave || CurrentPhase == GamePhase.Paused))
+            {
+                TogglePause();
+            }
         }
 
         private void BeginFlow()
@@ -66,8 +76,8 @@ namespace CyberWizard.Gameplay.GameFlow
             }
 
             waveDirector.AllWavesCompleted += HandleAllWavesCompleted;
-            if (baseCore != null) baseCore.Destroyed += HandleDefeat;
-            if (player != null) player.Died += HandleDefeat;
+            if (baseCore != null) baseCore.Destroyed += HandleBaseDestroyed;
+            if (player != null) player.Died += HandlePlayerDied;
 
             _captureZones = FindObjectsOfType<CaptureZone>();
             SetGameplayEnabled(false);
@@ -98,10 +108,29 @@ namespace CyberWizard.Gameplay.GameFlow
                 return;
             }
 
+            Time.timeScale = 1f;
             Cursor.lockState = CursorLockMode.None;
             Cursor.visible = true;
             var activeScene = SceneManager.GetActiveScene();
             SceneManager.LoadScene(activeScene.buildIndex);
+        }
+
+        public void TogglePause()
+        {
+            if (CurrentPhase == GamePhase.Wave)
+            {
+                SetGameplayEnabled(false);
+                ChangePhase(GamePhase.Paused);
+                Time.timeScale = 0f;
+                return;
+            }
+
+            if (CurrentPhase == GamePhase.Paused)
+            {
+                Time.timeScale = 1f;
+                SetGameplayEnabled(true);
+                ChangePhase(GamePhase.Wave);
+            }
         }
 
         private void HandleAllWavesCompleted()
@@ -113,11 +142,24 @@ namespace CyberWizard.Gameplay.GameFlow
 
             ChangePhase(GamePhase.Ended);
             SetGameplayEnabled(false);
+            Time.timeScale = 0f;
 
             if (HasCommandLineArgument("-smokeTest"))
             {
                 StartCoroutine(QuitSmokeTestAfterDelay());
             }
+        }
+
+        private void HandleBaseDestroyed()
+        {
+            DefeatReason = "主堡已被摧毀";
+            HandleDefeat();
+        }
+
+        private void HandlePlayerDied()
+        {
+            DefeatReason = "玩家已被擊倒";
+            HandleDefeat();
         }
 
         private void HandleDefeat()
@@ -129,6 +171,7 @@ namespace CyberWizard.Gameplay.GameFlow
 
             ChangePhase(GamePhase.Defeat);
             SetGameplayEnabled(false);
+            Time.timeScale = 0f;
 
             if (HasCommandLineArgument("-smokeTest"))
             {
@@ -182,7 +225,7 @@ namespace CyberWizard.Gameplay.GameFlow
 
         private static IEnumerator QuitSmokeTestAfterDelay()
         {
-            yield return new WaitForSeconds(0.25f);
+            yield return new WaitForSecondsRealtime(0.25f);
             Debug.Log("[PrototypeFlow] SmokeTestComplete");
 #if UNITY_EDITOR
             UnityEditor.EditorApplication.Exit(0);
@@ -193,13 +236,14 @@ namespace CyberWizard.Gameplay.GameFlow
 
         private void OnDestroy()
         {
+            Time.timeScale = 1f;
             if (waveDirector != null)
             {
                 waveDirector.AllWavesCompleted -= HandleAllWavesCompleted;
             }
 
-            if (baseCore != null) baseCore.Destroyed -= HandleDefeat;
-            if (player != null) player.Died -= HandleDefeat;
+            if (baseCore != null) baseCore.Destroyed -= HandleBaseDestroyed;
+            if (player != null) player.Died -= HandlePlayerDied;
         }
     }
 }

@@ -4,6 +4,7 @@ using CyberWizard.Gameplay.Enemies;
 using CyberWizard.Gameplay.Waves;
 using UnityEngine;
 using CyberWizard.Presentation;
+using CyberWizard.Gameplay.Neutral;
 
 namespace CyberWizard.Gameplay.Towers
 {
@@ -12,36 +13,52 @@ namespace CyberWizard.Gameplay.Towers
         private WaveDirector _waveDirector;
         private TowerRegistry _registry;
         private float _attackCooldown;
-        private float _durability;
         private WorldHealthBar _healthBar;
+        private Vitality _vitality;
+        private TowerDefinition _definition;
+        private GameObject _rangeIndicator;
+        private SoldierRegistry _soldierRegistry;
 
         public event Action<TowerController> StateChanged;
 
-        public bool IsAlive => _durability > 0f;
-        public bool IsOperational => _durability > 0f;
+        public bool IsAlive => _vitality != null && _vitality.IsAlive;
+        public bool IsOperational => IsAlive;
         public Faction Faction => Faction.Player;
         public Transform TargetTransform => transform;
         public ElementType Element { get; private set; }
-        public float Durability => _durability;
-        public float MaxDurability { get; private set; } = 100f;
-        public float AttackRange { get; private set; } = 6.5f;
+        public int Level { get; private set; } = 1;
+        public float Durability => _vitality != null ? _vitality.Current : 0f;
+        public float MaxDurability => _vitality != null ? _vitality.Maximum : 100f;
+        public float AttackRange => _definition != null
+            ? _definition.AttackRange + (Level - 1) * _definition.RangePerLevel
+            : 6.5f;
+        public bool CanUpgrade => _definition != null && Level < _definition.MaxLevel;
+        public int UpgradeCost => _definition != null
+            ? _definition.UpgradeBaseCost * Level
+            : 0;
 
         public void Initialize(
-            ElementType element,
+            TowerDefinition definition,
             WaveDirector waveDirector,
-            TowerRegistry registry)
+            TowerRegistry registry,
+            SoldierRegistry soldierRegistry = null)
         {
-            Element = element;
+            _definition = definition;
+            Element = definition != null ? definition.Element : ElementType.Fire;
             _waveDirector = waveDirector;
             _registry = registry;
-            _durability = MaxDurability;
+            _soldierRegistry = soldierRegistry;
+            _vitality = gameObject.AddComponent<Vitality>();
+            _vitality.Changed += HandleVitalityChanged;
+            _vitality.Initialize(definition != null ? definition.MaxDurability : 100f);
             _registry.Register(this);
             _healthBar = WorldHealthBar.Create(
                 transform,
                 new Vector3(0f, 2.15f, 0f),
                 PrototypeMaterialRole.Player,
                 1.8f);
-            _healthBar.SetValue(_durability, MaxDurability);
+            _healthBar.SetValue(Durability, MaxDurability);
+            CreateRangeIndicator();
         }
 
         private void Update()
@@ -63,41 +80,56 @@ namespace CyberWizard.Gameplay.Towers
                 return;
             }
 
-            target.TakeDamage(20f);
-            _durability = Mathf.Max(0f, _durability - 2f);
-            if (_healthBar != null) _healthBar.SetValue(_durability, MaxDurability);
-            _attackCooldown = 1f;
-            StateChanged?.Invoke(this);
+            FireProjectile(target);
+            _vitality.TakeDamage(
+                _definition != null ? _definition.DurabilityCostPerShot : 2f);
+            _attackCooldown = _definition != null ? _definition.AttackInterval : 1f;
         }
 
         public void TakeDamage(float amount)
         {
-            if (!IsAlive || amount <= 0f)
-            {
-                return;
-            }
-
-            _durability = Mathf.Max(0f, _durability - amount);
-            if (_healthBar != null) _healthBar.SetValue(_durability, MaxDurability);
-            StateChanged?.Invoke(this);
+            _vitality?.TakeDamage(amount);
         }
 
         public bool TryRepair(float amount)
         {
-            if (amount <= 0f || _durability >= MaxDurability)
+            return _vitality != null && _vitality.Restore(amount);
+        }
+
+        public bool TryUpgrade()
+        {
+            if (!CanUpgrade)
             {
                 return false;
             }
 
-            _durability = Mathf.Min(MaxDurability, _durability + amount);
-            if (_healthBar != null) _healthBar.SetValue(_durability, MaxDurability);
+            Level++;
+            _vitality.IncreaseMaximum(_definition.DurabilityPerLevel, true);
+            UpdateRangeIndicatorScale();
+            var top = transform.Find("Top");
+            if (top != null)
+            {
+                top.localScale *= 1.12f;
+            }
+
+            PrototypePulseEffect.Spawn(
+                transform.position + Vector3.up,
+                PrototypeMaterialRole.Player,
+                Vector3.one * 1.8f,
+                0.4f);
             StateChanged?.Invoke(this);
             return true;
         }
 
-        private EnemyAgent FindTarget()
+        private void HandleVitalityChanged(float current, float maximum)
         {
-            EnemyAgent result = null;
+            if (_healthBar != null) _healthBar.SetValue(current, maximum);
+            StateChanged?.Invoke(this);
+        }
+
+        private IDamageable FindTarget()
+        {
+            IDamageable result = null;
             var bestDistance = AttackRange * AttackRange;
             foreach (var enemy in _waveDirector.AliveEnemies)
             {
@@ -114,11 +146,92 @@ namespace CyberWizard.Gameplay.Towers
                 }
             }
 
+            var enemySoldier = _soldierRegistry != null
+                ? _soldierRegistry.FindClosest(Faction.Enemy, transform.position, AttackRange)
+                : null;
+            if (enemySoldier != null)
+            {
+                var distance = (enemySoldier.transform.position - transform.position).sqrMagnitude;
+                if (distance < bestDistance)
+                {
+                    result = enemySoldier;
+                }
+            }
+
             return result;
+        }
+
+        private void FireProjectile(IDamageable target)
+        {
+            var projectileObject = GameObject.CreatePrimitive(PrimitiveType.Sphere);
+            projectileObject.name = $"{Element} Tower Projectile";
+            projectileObject.transform.position = transform.position + Vector3.up * 1.8f;
+            projectileObject.transform.localScale = Vector3.one * 0.28f;
+            var collider = projectileObject.GetComponent<Collider>();
+            if (collider != null)
+            {
+                Destroy(collider);
+            }
+
+            PrototypeMaterialLibrary.Apply(projectileObject, PrototypeMaterialRole.Player);
+            var projectile = projectileObject.AddComponent<TowerProjectile>();
+            projectile.Initialize(
+                target,
+                _definition != null
+                    ? _definition.AttackDamage *
+                      (1f + (Level - 1) * _definition.DamagePerLevel)
+                    : 20f,
+                _definition != null ? _definition.ProjectileSpeed : 15f);
+        }
+
+        public void SetRangeVisible(bool visible)
+        {
+            if (_rangeIndicator != null)
+            {
+                _rangeIndicator.SetActive(visible);
+            }
+        }
+
+        private void CreateRangeIndicator()
+        {
+            _rangeIndicator = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
+            _rangeIndicator.name = "Attack Range Indicator";
+            _rangeIndicator.transform.SetParent(transform, false);
+            _rangeIndicator.transform.localPosition = new Vector3(0f, -0.96f, 0f);
+            _rangeIndicator.transform.localScale = new Vector3(
+                AttackRange * 2f,
+                0.015f,
+                AttackRange * 2f);
+            var collider = _rangeIndicator.GetComponent<Collider>();
+            if (collider != null)
+            {
+                Destroy(collider);
+            }
+
+            PrototypeMaterialLibrary.Apply(_rangeIndicator, PrototypeMaterialRole.Player);
+            _rangeIndicator.SetActive(_registry != null && _registry.RangesVisible);
+        }
+
+        private void UpdateRangeIndicatorScale()
+        {
+            if (_rangeIndicator == null)
+            {
+                return;
+            }
+
+            _rangeIndicator.transform.localScale = new Vector3(
+                AttackRange * 2f,
+                0.015f,
+                AttackRange * 2f);
         }
 
         private void OnDestroy()
         {
+            if (_vitality != null)
+            {
+                _vitality.Changed -= HandleVitalityChanged;
+            }
+
             if (_registry != null)
             {
                 _registry.Unregister(this);

@@ -4,15 +4,28 @@ using CyberWizard.Gameplay.Enemies;
 using CyberWizard.Gameplay.Towers;
 using CyberWizard.Gameplay.Waves;
 using UnityEngine;
+using CyberWizard.Presentation;
+using CyberWizard.Gameplay.Neutral;
+using CyberWizard.Core;
+using CyberWizard.Gameplay.Player;
 
 namespace CyberWizard.Gameplay.Combo
 {
     public sealed class PrototypeComboSystem : MonoBehaviour
     {
+        private enum ComboEffect
+        {
+            Burn,
+            Stun,
+            Slow
+        }
+
         [SerializeField] private Camera gameplayCamera;
         [SerializeField] private TowerRegistry towerRegistry;
         [SerializeField] private WaveDirector waveDirector;
         [SerializeField, Min(0f)] private float cooldown = 4f;
+        [SerializeField] private SoldierRegistry soldierRegistry;
+        [SerializeField] private PrototypePlayerController player;
 
         private float _cooldownRemaining;
 
@@ -21,11 +34,18 @@ namespace CyberWizard.Gameplay.Combo
         public string StatusMessage { get; private set; } = "在兩座元素塔的重疊射程按 Q 施放連攜";
         public float CooldownRemaining => _cooldownRemaining;
 
-        public void Configure(Camera camera, TowerRegistry registry, WaveDirector director)
+        public void Configure(
+            Camera camera,
+            TowerRegistry registry,
+            WaveDirector director,
+            SoldierRegistry newSoldierRegistry = null,
+            PrototypePlayerController newPlayer = null)
         {
             gameplayCamera = camera;
             towerRegistry = registry;
             waveDirector = director;
+            soldierRegistry = newSoldierRegistry;
+            player = newPlayer;
         }
 
         private void Update()
@@ -35,7 +55,7 @@ namespace CyberWizard.Gameplay.Combo
                 _cooldownRemaining = Mathf.Max(0f, _cooldownRemaining - Time.deltaTime);
             }
 
-            if (Input.GetKeyDown(KeyCode.Q))
+            if (player != null && player.InputEnabled && Input.GetKeyDown(KeyCode.Q))
             {
                 TryCastAtCursor();
             }
@@ -88,9 +108,23 @@ namespace CyberWizard.Gameplay.Combo
                             coveringTowers[right].Element,
                             out var name,
                             out var damage,
-                            out var radius))
+                            out var radius,
+                            out var effect,
+                            out var effectMagnitude,
+                            out var effectDuration))
                     {
-                        ApplyAreaDamage(point, damage, radius);
+                        ApplyAreaEffect(
+                            point,
+                            damage,
+                            radius,
+                            effect,
+                            effectMagnitude,
+                            effectDuration);
+                        PrototypePulseEffect.Spawn(
+                            point + Vector3.up * 0.5f,
+                            PrototypeMaterialRole.Player,
+                            new Vector3(radius * 2f, 0.35f, radius * 2f),
+                            0.45f);
                         _cooldownRemaining = cooldown;
                         StatusMessage = $"施放 {name}";
                         Changed?.Invoke();
@@ -130,7 +164,13 @@ namespace CyberWizard.Gameplay.Combo
             return false;
         }
 
-        private void ApplyAreaDamage(Vector3 point, float damage, float radius)
+        private void ApplyAreaEffect(
+            Vector3 point,
+            float damage,
+            float radius,
+            ComboEffect effect,
+            float effectMagnitude,
+            float effectDuration)
         {
             var targets = new List<EnemyAgent>();
             foreach (var enemy in waveDirector.AliveEnemies)
@@ -144,7 +184,39 @@ namespace CyberWizard.Gameplay.Combo
 
             for (var index = 0; index < targets.Count; index++)
             {
-                targets[index].TakeDamage(damage);
+                var target = targets[index];
+                target.TakeDamage(damage);
+                if (!target.IsAlive)
+                {
+                    continue;
+                }
+
+                switch (effect)
+                {
+                    case ComboEffect.Burn:
+                        target.ApplyBurn(effectMagnitude, effectDuration);
+                        break;
+                    case ComboEffect.Stun:
+                        target.ApplyStun(effectDuration);
+                        break;
+                    case ComboEffect.Slow:
+                        target.ApplySlow(effectMagnitude, effectDuration);
+                        break;
+                }
+            }
+
+            if (soldierRegistry != null)
+            {
+                var enemySoldiers = new List<SoldierAgent>();
+                soldierRegistry.CollectInRadius(
+                    Faction.Enemy,
+                    point,
+                    radius,
+                    enemySoldiers);
+                for (var index = 0; index < enemySoldiers.Count; index++)
+                {
+                    enemySoldiers[index].TakeDamage(damage);
+                }
             }
         }
 
@@ -153,7 +225,10 @@ namespace CyberWizard.Gameplay.Combo
             ElementType second,
             out string name,
             out float damage,
-            out float radius)
+            out float radius,
+            out ComboEffect effect,
+            out float effectMagnitude,
+            out float effectDuration)
         {
             if ((first == ElementType.Fire && second == ElementType.Wind) ||
                 (first == ElementType.Wind && second == ElementType.Fire))
@@ -161,6 +236,9 @@ namespace CyberWizard.Gameplay.Combo
                 name = "火風爆流";
                 damage = 45f;
                 radius = 4f;
+                effect = ComboEffect.Burn;
+                effectMagnitude = 8f;
+                effectDuration = 3f;
                 return true;
             }
 
@@ -170,6 +248,9 @@ namespace CyberWizard.Gameplay.Combo
                 name = "熔岩震擊";
                 damage = 60f;
                 radius = 3f;
+                effect = ComboEffect.Stun;
+                effectMagnitude = 0f;
+                effectDuration = 1.5f;
                 return true;
             }
 
@@ -179,12 +260,18 @@ namespace CyberWizard.Gameplay.Combo
                 name = "霜暴";
                 damage = 35f;
                 radius = 5f;
+                effect = ComboEffect.Slow;
+                effectMagnitude = 0.45f;
+                effectDuration = 4f;
                 return true;
             }
 
             name = string.Empty;
             damage = 0f;
             radius = 0f;
+            effect = ComboEffect.Burn;
+            effectMagnitude = 0f;
+            effectDuration = 0f;
             return false;
         }
     }

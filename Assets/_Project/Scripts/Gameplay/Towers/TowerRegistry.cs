@@ -16,6 +16,26 @@ namespace CyberWizard.Gameplay.Towers
         public int Count => _towers.Count;
         public int TowerLimit => towerLimit;
         public bool CanAdd => _towers.Count < towerLimit;
+        public bool RangesVisible { get; private set; }
+
+        private void Update()
+        {
+            if (!Input.GetKeyDown(KeyCode.T))
+            {
+                return;
+            }
+
+            RangesVisible = !RangesVisible;
+            for (var index = 0; index < _towers.Count; index++)
+            {
+                if (_towers[index] != null)
+                {
+                    _towers[index].SetRangeVisible(RangesVisible);
+                }
+            }
+
+            Changed?.Invoke();
+        }
 
         public void Configure(int limit)
         {
@@ -30,6 +50,7 @@ namespace CyberWizard.Gameplay.Towers
             }
 
             _towers.Add(tower);
+            tower.SetRangeVisible(RangesVisible);
             Changed?.Invoke();
         }
 

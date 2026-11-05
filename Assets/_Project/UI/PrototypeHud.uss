@@ -25,6 +25,11 @@
     color: rgb(151, 211, 255);
 }
 
+.boss-line {
+    color: rgb(255, 112, 112);
+    -unity-font-style: bold;
+}
+
 .hud-help {
     font-size: 12px;
     margin-top: 10px;

@@ -5,6 +5,10 @@ using CyberWizard.Gameplay.Capture;
 using CyberWizard.Gameplay.Waves;
 using UnityEngine;
 using CyberWizard.Presentation;
+using CyberWizard.Gameplay.Player;
+using CyberWizard.Gameplay.Towers;
+using CyberWizard.Gameplay.GameFlow;
+using CyberWizard.Core;
 
 namespace CyberWizard.Gameplay.Neutral
 {
@@ -15,6 +19,10 @@ namespace CyberWizard.Gameplay.Neutral
         [SerializeField] private WaveDirector waveDirector;
         [SerializeField, Min(1f)] private float productionInterval = 5f;
         [SerializeField, Min(1)] private int soldierLimit = 3;
+        [SerializeField] private PrototypePlayerController player;
+        [SerializeField] private TowerRegistry towerRegistry;
+        [SerializeField] private BaseCore baseCore;
+        [SerializeField] private SoldierRegistry soldierRegistry;
 
         private readonly List<SoldierAgent> _soldiers = new List<SoldierAgent>();
         private Coroutine _productionRoutine;
@@ -37,11 +45,19 @@ namespace CyberWizard.Gameplay.Neutral
         public void Configure(
             CaptureZone zone,
             Transform spawnPoint,
-            WaveDirector director)
+            WaveDirector director,
+            PrototypePlayerController newPlayer = null,
+            TowerRegistry newTowerRegistry = null,
+            BaseCore newBaseCore = null,
+            SoldierRegistry newSoldierRegistry = null)
         {
             captureZone = zone;
             soldierSpawnPoint = spawnPoint;
             waveDirector = director;
+            player = newPlayer;
+            towerRegistry = newTowerRegistry;
+            baseCore = newBaseCore;
+            soldierRegistry = newSoldierRegistry;
         }
 
         private void OnEnable()
@@ -92,6 +108,11 @@ namespace CyberWizard.Gameplay.Neutral
                 _captureBar.SetFillRole(PrototypeMaterialRole.Player);
                 _captureBar.SetValue(1f, 1f);
             }
+            PrototypePulseEffect.Spawn(
+                transform.position + Vector3.up * 0.5f,
+                PrototypeMaterialRole.Player,
+                new Vector3(3f, 0.35f, 3f),
+                0.5f);
             Changed?.Invoke();
             _productionRoutine = StartCoroutine(ProductionLoop());
         }
@@ -111,7 +132,13 @@ namespace CyberWizard.Gameplay.Neutral
                 _captureBar.SetFillRole(PrototypeMaterialRole.Enemy);
                 _captureBar.SetValue(1f, 1f);
             }
+            PrototypePulseEffect.Spawn(
+                transform.position + Vector3.up * 0.5f,
+                PrototypeMaterialRole.Enemy,
+                new Vector3(3f, 0.35f, 3f),
+                0.5f);
             Changed?.Invoke();
+            _productionRoutine = StartCoroutine(ProductionLoop());
         }
 
         public void SetEnemyCaptureProgress(float normalizedProgress)
@@ -155,11 +182,20 @@ namespace CyberWizard.Gameplay.Neutral
             }
 
             var soldierObject = GameObject.CreatePrimitive(PrimitiveType.Cube);
-            soldierObject.name = $"Allied Soldier {_soldiers.Count + 1}";
+            var faction = IsEnemyControlled ? Faction.Enemy : Faction.Player;
+            soldierObject.name = faction == Faction.Enemy
+                ? $"Enemy Outpost Soldier {_soldiers.Count + 1}"
+                : $"Allied Soldier {_soldiers.Count + 1}";
             soldierObject.transform.position = soldierSpawnPoint.position;
             soldierObject.transform.localScale = new Vector3(0.7f, 1.4f, 0.7f);
             var soldier = soldierObject.AddComponent<SoldierAgent>();
-            soldier.Initialize(waveDirector);
+            soldier.Initialize(
+                waveDirector,
+                faction,
+                player,
+                towerRegistry,
+                baseCore,
+                soldierRegistry);
             _soldiers.Add(soldier);
             Changed?.Invoke();
         }

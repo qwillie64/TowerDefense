@@ -13,6 +13,8 @@ namespace CyberWizard.Gameplay.Waves
         {
             public readonly WaveDto Data;
             public bool Started;
+            public bool Completed;
+            public int PendingSpawnCount;
 
             public WaveRuntime(WaveDto data)
             {
@@ -33,6 +35,9 @@ namespace CyberWizard.Gameplay.Waves
 
         public event Action StatsChanged;
         public event Action AllWavesCompleted;
+        public event Action<string, int> WaveBegan;
+        public event Action<string, int> WaveCleared;
+        public event Action<EnemyAgent> EnemyDefeated;
 
         public float ElapsedTime => _elapsedTime;
         public int TotalWaveCount => _waves.Length;
@@ -41,6 +46,7 @@ namespace CyberWizard.Gameplay.Waves
         public int SpawnedCount => _spawnedCount;
         public int AliveCount => _aliveEnemies.Count;
         public IEnumerable<EnemyAgent> AliveEnemies => _aliveEnemies;
+        public EnemyAgent ActiveBoss { get; private set; }
 
         public float TimeUntilNextWave
         {
@@ -75,6 +81,26 @@ namespace CyberWizard.Gameplay.Waves
             {
                 error = "WaveDirector 收到空的波次資料。";
                 return false;
+            }
+
+            for (var waveIndex = 0; waveIndex < schedule.waves.Length; waveIndex++)
+            {
+                var entries = schedule.waves[waveIndex].enemies;
+                for (var entryIndex = 0; entryIndex < entries.Length; entryIndex++)
+                {
+                    var entry = entries[entryIndex];
+                    if (!enemySpawner.HasDefinition(entry.enemyTypeId))
+                    {
+                        error = $"波次 {schedule.waves[waveIndex].waveId} 使用未知敵人：{entry.enemyTypeId}。";
+                        return false;
+                    }
+
+                    if (!enemySpawner.HasSpawnPoint(entry.spawnPointId))
+                    {
+                        error = $"波次 {schedule.waves[waveIndex].waveId} 使用未知出生點：{entry.spawnPointId}。";
+                        return false;
+                    }
+                }
             }
 
             _waves = new WaveRuntime[schedule.waves.Length];
@@ -125,31 +151,47 @@ namespace CyberWizard.Gameplay.Waves
         {
             wave.Started = true;
             _startedWaveCount++;
-            Debug.Log($"[WaveDirector] WaveStarted id={wave.Data.waveId} time={_elapsedTime:0.00}", this);
-
             var entries = wave.Data.enemies;
             for (var index = 0; index < entries.Length; index++)
             {
+                wave.PendingSpawnCount += entries[index].count;
+            }
+            Debug.Log($"[WaveDirector] WaveStarted id={wave.Data.waveId} time={_elapsedTime:0.00}", this);
+            WaveBegan?.Invoke(wave.Data.waveId, _startedWaveCount);
+
+            for (var index = 0; index < entries.Length; index++)
+            {
                 _pendingSpawnCount += entries[index].count;
-                StartCoroutine(SpawnEntry(wave.Data.waveId, entries[index]));
+                StartCoroutine(SpawnEntry(wave, entries[index]));
             }
         }
 
-        private IEnumerator SpawnEntry(string waveId, EnemySpawnDto entry)
+        private IEnumerator SpawnEntry(WaveRuntime wave, EnemySpawnDto entry)
         {
             for (var index = 0; index < entry.count; index++)
             {
-                var enemy = enemySpawner.Spawn(entry.enemyTypeId, waveId);
+                var enemy = enemySpawner.Spawn(
+                    entry.enemyTypeId,
+                    wave.Data.waveId,
+                    entry.spawnPointId);
                 _pendingSpawnCount--;
+                wave.PendingSpawnCount--;
 
                 if (enemy != null)
                 {
                     _spawnedCount++;
                     _aliveEnemies.Add(enemy);
                     enemy.Exited += HandleEnemyExited;
+                    enemy.Killed += HandleEnemyKilled;
+                    if (enemy.IsBoss)
+                    {
+                        ActiveBoss = enemy;
+                        Debug.Log($"[WaveDirector] BossSpawned type={enemy.EnemyTypeId}", this);
+                    }
                 }
 
                 StatsChanged?.Invoke();
+                TryCompleteWaves();
 
                 if (index < entry.count - 1 && entry.spawnInterval > 0f)
                 {
@@ -165,11 +207,56 @@ namespace CyberWizard.Gameplay.Waves
             if (enemy != null)
             {
                 enemy.Exited -= HandleEnemyExited;
+                enemy.Killed -= HandleEnemyKilled;
                 _aliveEnemies.Remove(enemy);
+                if (enemy == ActiveBoss)
+                {
+                    ActiveBoss = null;
+                }
             }
 
             StatsChanged?.Invoke();
+            TryCompleteWaves();
             TryCompleteSchedule();
+        }
+
+        private void HandleEnemyKilled(EnemyAgent enemy)
+        {
+            if (enemy != null)
+            {
+                EnemyDefeated?.Invoke(enemy);
+            }
+        }
+
+        private void TryCompleteWaves()
+        {
+            for (var waveIndex = 0; waveIndex < _waves.Length; waveIndex++)
+            {
+                var wave = _waves[waveIndex];
+                if (!wave.Started || wave.Completed || wave.PendingSpawnCount > 0)
+                {
+                    continue;
+                }
+
+                var hasLivingEnemy = false;
+                foreach (var enemy in _aliveEnemies)
+                {
+                    if (enemy != null && enemy.IsAlive && enemy.WaveId == wave.Data.waveId)
+                    {
+                        hasLivingEnemy = true;
+                        break;
+                    }
+                }
+
+                if (hasLivingEnemy)
+                {
+                    continue;
+                }
+
+                wave.Completed = true;
+                Debug.Log($"[WaveDirector] WaveCompleted id={wave.Data.waveId} time={_elapsedTime:0.00}", this);
+                WaveCleared?.Invoke(wave.Data.waveId, waveIndex + 1);
+            }
         }
 
         private void TryCompleteSchedule()
@@ -179,6 +266,7 @@ namespace CyberWizard.Gameplay.Waves
                 return;
             }
 
+            TryCompleteWaves();
             if (_startedWaveCount < _waves.Length || _pendingSpawnCount > 0 || _aliveEnemies.Count > 0)
             {
                 return;
@@ -198,6 +286,7 @@ namespace CyberWizard.Gameplay.Waves
                 if (enemy != null)
                 {
                     enemy.Exited -= HandleEnemyExited;
+                    enemy.Killed -= HandleEnemyKilled;
                 }
             }
         }
