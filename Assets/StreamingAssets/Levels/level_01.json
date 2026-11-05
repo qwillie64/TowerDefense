@@ -1,0 +1,18 @@
+{
+  "version": 1,
+  "levelId": "level_01",
+  "waves": [
+    {
+      "waveId": "wave_01",
+      "startTime": 12.0,
+      "enemies": [
+        {
+          "enemyTypeId": "enemy_basic",
+          "count": 6,
+          "spawnPointId": "spawn_a",
+          "spawnInterval": 0.75
+        }
+      ]
+    }
+  ]
+}

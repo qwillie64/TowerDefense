@@ -1,0 +1,21 @@
+<ui:UXML xmlns:ui="UnityEngine.UIElements">
+    <Style src="PrototypeHud.uss" />
+    <ui:VisualElement name="hud-root" class="hud-root">
+        <ui:Label text="CyberWizard TD 流程原型" class="hud-title" />
+        <ui:Label name="phase-label" text="流程：開始" class="hud-line" />
+        <ui:Label name="timer-label" text="第一波倒數：--" class="hud-line" />
+        <ui:Label name="stats-label" text="波次 0/1　已生成 0　存活 0" class="hud-line" />
+        <ui:Label name="player-label" text="玩家生命：100/100" class="hud-line" />
+        <ui:Label name="base-label" text="主堡生命：100/100" class="hud-line" />
+        <ui:Label name="resource-label" text="資源：100　防禦塔：0/4" class="hud-line" />
+        <ui:Label name="capture-label" text="建造區域佔領：0%" class="hud-line" />
+        <ui:Label name="build-label" text="建造：先前往據點完成佔領" class="hud-line" />
+        <ui:Label name="combo-label" text="連攜：等待元素塔" class="hud-line" />
+        <ui:Label name="neutral-label" text="中立據點：未佔領" class="hud-line" />
+        <ui:Label name="camera-label" text="視角：戰術俯視（Tab 切換）" class="hud-line" />
+        <ui:Label name="message-label" text="正在載入關卡資料" class="hud-message" />
+        <ui:Button name="start-button" text="開始遊戲" class="hud-button" />
+        <ui:Button name="replay-button" text="再次遊玩" class="hud-button hidden" />
+        <ui:Label text="WASD 移動｜Tab 切換視角｜B 建造｜1-4 元素｜左鍵放置｜R 修理｜Q 連攜" class="hud-help" />
+    </ui:VisualElement>
+</ui:UXML>

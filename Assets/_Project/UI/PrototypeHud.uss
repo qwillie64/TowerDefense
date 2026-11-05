@@ -1,0 +1,43 @@
+.hud-root {
+    position: absolute;
+    left: 20px;
+    top: 20px;
+    min-width: 340px;
+    padding: 14px;
+    background-color: rgba(15, 18, 24, 0.88);
+    color: rgb(238, 242, 248);
+}
+
+.hud-title {
+    font-size: 20px;
+    -unity-font-style: bold;
+    margin-bottom: 10px;
+}
+
+.hud-line {
+    font-size: 15px;
+    margin-bottom: 5px;
+}
+
+.hud-message {
+    font-size: 14px;
+    margin-top: 8px;
+    color: rgb(151, 211, 255);
+}
+
+.hud-help {
+    font-size: 12px;
+    margin-top: 10px;
+    color: rgb(196, 203, 214);
+}
+
+.hud-button {
+    height: 38px;
+    margin-top: 10px;
+    font-size: 16px;
+    -unity-font-style: bold;
+}
+
+.hidden {
+    display: none;
+}
