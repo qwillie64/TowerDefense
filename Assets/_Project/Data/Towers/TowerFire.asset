@@ -27,3 +27,6 @@ MonoBehaviour:
   damagePerLevel: 0.3
   rangePerLevel: 0.4
   durabilityPerLevel: 20
+  basePart: {fileID: 11400000, guid: f87a1c3270bbaca44adb29913c3d61cc, type: 2}
+  bodyPart: {fileID: 11400000, guid: 944ce553757df294198a2c7d33de65c3, type: 2}
+  topPart: {fileID: 11400000, guid: de320c9eeb968934cb57c75ebeef7dea, type: 2}

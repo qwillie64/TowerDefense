@@ -1,0 +1,75 @@
+{
+  "version": 1,
+  "levelId": "level_02",
+  "displayName": "赤潮壓境",
+  "difficulty": "進階",
+  "description": "重裝敵人與雙路混合進攻",
+  "waves": [
+    {
+      "waveId": "wave_01",
+      "startTime": 3.0,
+      "enemies": [
+        {
+          "enemyTypeId": "enemy_basic",
+          "count": 3,
+          "spawnPointId": "spawn_a",
+          "spawnInterval": 0.7
+        },
+        {
+          "enemyTypeId": "enemy_fast",
+          "count": 2,
+          "spawnPointId": "spawn_b",
+          "spawnInterval": 0.8
+        }
+      ]
+    },
+    {
+      "waveId": "wave_02",
+      "startTime": 15.0,
+      "enemies": [
+        {
+          "enemyTypeId": "enemy_tank",
+          "count": 2,
+          "spawnPointId": "spawn_a",
+          "spawnInterval": 1.0
+        }
+      ]
+    },
+    {
+      "waveId": "wave_03",
+      "startTime": 29.0,
+      "enemies": [
+        {
+          "enemyTypeId": "enemy_tank",
+          "count": 2,
+          "spawnPointId": "spawn_a",
+          "spawnInterval": 1.1
+        },
+        {
+          "enemyTypeId": "enemy_fast",
+          "count": 4,
+          "spawnPointId": "spawn_b",
+          "spawnInterval": 0.65
+        }
+      ]
+    },
+    {
+      "waveId": "wave_boss",
+      "startTime": 46.0,
+      "enemies": [
+        {
+          "enemyTypeId": "enemy_boss",
+          "count": 1,
+          "spawnPointId": "spawn_a",
+          "spawnInterval": 0.0
+        },
+        {
+          "enemyTypeId": "enemy_tank",
+          "count": 1,
+          "spawnPointId": "spawn_b",
+          "spawnInterval": 0.0
+        }
+      ]
+    }
+  ]
+}

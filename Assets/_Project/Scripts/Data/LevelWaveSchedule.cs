@@ -9,6 +9,9 @@ namespace CyberWizard.Data
     {
         public int version;
         public string levelId;
+        public string displayName;
+        public string difficulty;
+        public string description;
         public WaveDto[] waves;
     }
 

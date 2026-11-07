@@ -10,23 +10,12 @@ using UnityEngine;
 
 namespace CyberWizard.Gameplay.Enemies
 {
-    public enum EnemyIntent
-    {
-        AttackBase,
-        CaptureNeutral,
-        AttackTower
-    }
-
     public sealed class EnemyAgent : MonoBehaviour, IDamageable
     {
         private const float ArrivalDistance = 0.08f;
 
         private Transform _destination;
-        private float _moveSpeed;
         private bool _reportedExit;
-        private float _attackCooldown;
-        private float _contactDamage;
-        private float _attackInterval;
         private float _neutralCaptureProgress;
         private IDamageable _attackTarget;
         private TowerRegistry _towerRegistry;
@@ -37,6 +26,8 @@ namespace CyberWizard.Gameplay.Enemies
         private Vitality _vitality;
         private EnemyStatusController _status;
         private EnemyBehaviorSettings _behaviorSettings;
+        private EnemyMovementMotor _movementMotor;
+        private EnemyMeleeAttack _meleeAttack;
 
         public event Action<EnemyAgent> Exited;
         public event Action<EnemyAgent> Killed;
@@ -72,9 +63,10 @@ namespace CyberWizard.Gameplay.Enemies
             Reward = definition.Reward;
             WaveId = waveId;
             _destination = destination;
-            _moveSpeed = definition.MoveSpeed;
-            _contactDamage = definition.ContactDamage;
-            _attackInterval = definition.AttackInterval;
+            _movementMotor = new EnemyMovementMotor(transform, definition.MoveSpeed);
+            _meleeAttack = new EnemyMeleeAttack(
+                definition.ContactDamage,
+                definition.AttackInterval);
             _towerRegistry = towerRegistry;
             _player = player;
             _baseCore = baseCore;
@@ -108,7 +100,7 @@ namespace CyberWizard.Gameplay.Enemies
                 return;
             }
 
-            _attackCooldown -= Time.deltaTime;
+            _meleeAttack?.Tick(Time.deltaTime);
             if (_status != null && !_status.CanAct)
             {
                 return;
@@ -151,33 +143,24 @@ namespace CyberWizard.Gameplay.Enemies
 
         private void SelectIntent()
         {
-            var roll = UnityEngine.Random.value;
             var outpost = _neutralModule != null ? _neutralModule.Outpost : null;
-
             var captureChance = _behaviorSettings != null
                 ? _behaviorSettings.CaptureNeutralChance
                 : 0.15f;
-            var towerThreshold = captureChance + (_behaviorSettings != null
+            var towerChance = _behaviorSettings != null
                 ? _behaviorSettings.AttackTowerChance
-                : 0.15f);
+                : 0.15f;
+            var canCaptureNeutral = _neutralModule != null && _neutralModule.FeatureEnabled &&
+                                    outpost != null && !outpost.IsAllied &&
+                                    !outpost.IsEnemyControlled;
+            var hasTowerTarget = _towerRegistry != null && _towerRegistry.Count > 0;
 
-            if (roll < captureChance)
-            {
-                Intent = _neutralModule != null && _neutralModule.FeatureEnabled &&
-                         outpost != null && !outpost.IsAllied && !outpost.IsEnemyControlled
-                    ? EnemyIntent.CaptureNeutral
-                    : EnemyIntent.AttackBase;
-            }
-            else if (roll < towerThreshold)
-            {
-                Intent = _towerRegistry != null && _towerRegistry.Count > 0
-                    ? EnemyIntent.AttackTower
-                    : EnemyIntent.AttackBase;
-            }
-            else
-            {
-                Intent = EnemyIntent.AttackBase;
-            }
+            Intent = EnemyIntentSelector.Select(
+                UnityEngine.Random.value,
+                captureChance,
+                towerChance,
+                canCaptureNeutral,
+                hasTowerTarget);
 
             Debug.Log($"[EnemyAgent] {name} Intent={Intent}", this);
         }
@@ -221,10 +204,9 @@ namespace CyberWizard.Gameplay.Enemies
                 return;
             }
 
-            if (MoveTowards(_attackTarget.TargetTransform, GetAttackDistance()) && _attackCooldown <= 0f)
+            if (MoveTowards(_attackTarget.TargetTransform, GetAttackDistance()))
             {
-                _attackTarget.TakeDamage(_contactDamage);
-                _attackCooldown = _attackInterval;
+                _meleeAttack?.TryAttack(_attackTarget);
             }
         }
 
@@ -233,11 +215,7 @@ namespace CyberWizard.Gameplay.Enemies
             if (_player != null && _player.IsAlive &&
                 Vector3.Distance(transform.position, _player.transform.position) <= GetAttackDistance())
             {
-                if (_attackCooldown <= 0f)
-                {
-                    _player.TakeDamage(_contactDamage);
-                    _attackCooldown = _attackInterval;
-                }
+                _meleeAttack?.TryAttack(_player);
                 return;
             }
 
@@ -254,15 +232,11 @@ namespace CyberWizard.Gameplay.Enemies
                 {
                     if (IsBoss)
                     {
-                        if (_attackCooldown <= 0f)
-                        {
-                            _baseCore.TakeDamage(_contactDamage);
-                            _attackCooldown = _attackInterval;
-                        }
+                        _meleeAttack?.TryAttack(_baseCore);
                         return;
                     }
 
-                    _baseCore.TakeDamage(_contactDamage);
+                    _meleeAttack?.AttackImmediately(_baseCore);
                 }
 
                 ReportExit();
@@ -272,29 +246,11 @@ namespace CyberWizard.Gameplay.Enemies
 
         private bool MoveTowards(Transform target, float stopDistance)
         {
-            if (target == null)
-            {
-                return true;
-            }
-
-            var targetPosition = target.position;
-            targetPosition.y = transform.position.y;
-            var direction = targetPosition - transform.position;
-            if (direction.sqrMagnitude <= stopDistance * stopDistance)
-            {
-                return true;
-            }
-
-            transform.position = Vector3.MoveTowards(
-                transform.position,
-                targetPosition,
-                _moveSpeed * (_status != null ? _status.SpeedMultiplier : 1f) * Time.deltaTime);
-            if (direction.sqrMagnitude > 0.001f)
-            {
-                transform.rotation = Quaternion.LookRotation(direction.normalized, Vector3.up);
-            }
-
-            return false;
+            return _movementMotor == null || _movementMotor.MoveTowards(
+                target,
+                stopDistance,
+                _status != null ? _status.SpeedMultiplier : 1f,
+                Time.deltaTime);
         }
 
         private float GetAttackDistance()

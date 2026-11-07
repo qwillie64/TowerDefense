@@ -2,15 +2,61 @@ using CyberWizard.Gameplay.Enemies;
 using CyberWizard.Presentation;
 using CyberWizard.Core;
 using UnityEngine;
+using System.Collections.Generic;
 
 namespace CyberWizard.Gameplay.Towers
 {
     public sealed class TowerProjectile : MonoBehaviour
     {
+        private static readonly Stack<TowerProjectile> Pool = new Stack<TowerProjectile>();
+
         private IDamageable _target;
         private MonoBehaviour _targetBehaviour;
         private float _damage;
         private float _speed;
+        private bool _isPooled;
+
+        public static int CreatedCount { get; private set; }
+        public static int ReusedCount { get; private set; }
+
+        public static void Spawn(
+            Vector3 position,
+            ElementType element,
+            IDamageable target,
+            float damage,
+            float speed)
+        {
+            TowerProjectile projectile = null;
+            while (Pool.Count > 0 && projectile == null)
+            {
+                projectile = Pool.Pop();
+            }
+
+            if (projectile == null)
+            {
+                var projectileObject = GameObject.CreatePrimitive(PrimitiveType.Sphere);
+                projectileObject.transform.localScale = Vector3.one * 0.28f;
+                var collider = projectileObject.GetComponent<Collider>();
+                if (collider != null)
+                {
+                    Destroy(collider);
+                }
+
+                PrototypeMaterialLibrary.Apply(projectileObject, PrototypeMaterialRole.Player);
+                projectile = projectileObject.AddComponent<TowerProjectile>();
+                CreatedCount++;
+            }
+            else
+            {
+                ReusedCount++;
+            }
+
+            projectile.name = $"{element} Tower Projectile";
+            projectile.transform.position = position;
+            projectile._isPooled = false;
+            projectile.Initialize(target, damage, speed);
+            projectile.gameObject.SetActive(true);
+        }
 
         public void Initialize(IDamageable target, float damage, float speed)
         {
@@ -24,7 +70,7 @@ namespace CyberWizard.Gameplay.Towers
         {
             if (_targetBehaviour == null || _target == null || !_target.IsAlive)
             {
-                Destroy(gameObject);
+                Release();
                 return;
             }
 
@@ -44,7 +90,21 @@ namespace CyberWizard.Gameplay.Towers
                 PrototypeMaterialRole.Player,
                 Vector3.one * 0.55f,
                 0.18f);
-            Destroy(gameObject);
+            Release();
+        }
+
+        private void Release()
+        {
+            if (_isPooled)
+            {
+                return;
+            }
+
+            _isPooled = true;
+            _target = null;
+            _targetBehaviour = null;
+            gameObject.SetActive(false);
+            Pool.Push(this);
         }
     }
 }

@@ -1,6 +1,9 @@
 {
   "version": 1,
   "levelId": "level_01",
+  "displayName": "灰原防線",
+  "difficulty": "入門",
+  "description": "熟悉佔領、建塔與雙路防守",
   "waves": [
     {
       "waveId": "wave_01",

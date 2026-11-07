@@ -13,25 +13,37 @@ namespace CyberWizard.Gameplay.GameFlow
     public sealed class PrototypeGameFlowController : MonoBehaviour
     {
         [SerializeField] private WaveDirector waveDirector;
-        [SerializeField] private string scheduleRelativePath = "Levels/level_01.json";
+        [SerializeField] private string[] scheduleRelativePaths =
+        {
+            "Levels/level_01.json",
+            "Levels/level_02.json"
+        };
         [SerializeField] private BaseCore baseCore;
         [SerializeField] private PrototypePlayerController player;
         private CaptureZone[] _captureZones = Array.Empty<CaptureZone>();
+        private static int _retainedLevelIndex;
 
         public event Action<GamePhase> PhaseChanged;
+        public event Action LevelChanged;
 
         public GamePhase CurrentPhase { get; private set; } = GamePhase.Starting;
         public string FailureReason { get; private set; } = string.Empty;
         public string DefeatReason { get; private set; } = string.Empty;
+        public int SelectedLevelIndex { get; private set; }
+        public int LevelCount => scheduleRelativePaths?.Length ?? 0;
+        public string SelectedLevelId { get; private set; } = string.Empty;
+        public string SelectedLevelName { get; private set; } = string.Empty;
+        public string SelectedLevelDifficulty { get; private set; } = string.Empty;
+        public string SelectedLevelDescription { get; private set; } = string.Empty;
 
         public void Configure(
             WaveDirector newWaveDirector,
-            string relativePath,
+            string[] relativePaths,
             BaseCore newBaseCore = null,
             PrototypePlayerController newPlayer = null)
         {
             waveDirector = newWaveDirector;
-            scheduleRelativePath = relativePath;
+            scheduleRelativePaths = relativePaths;
             baseCore = newBaseCore;
             player = newPlayer;
         }
@@ -60,18 +72,18 @@ namespace CyberWizard.Gameplay.GameFlow
                 return;
             }
 
-            if (!LevelScheduleLoader.TryLoadFromStreamingAssets(
-                    scheduleRelativePath,
-                    out var schedule,
-                    out var loadError))
+            if (scheduleRelativePaths == null || scheduleRelativePaths.Length == 0)
             {
-                Fail(loadError);
+                Fail("PrototypeGameFlowController 未配置任何關卡資料。");
                 return;
             }
 
-            if (!waveDirector.Initialize(schedule, out var initializeError))
+            var initialIndex = HasCommandLineArgument("-level02Smoke")
+                ? Mathf.Min(1, scheduleRelativePaths.Length - 1)
+                : Mathf.Clamp(_retainedLevelIndex, 0, scheduleRelativePaths.Length - 1);
+            if (!TrySelectLevel(initialIndex, out var selectionError))
             {
-                Fail(initializeError);
+                Fail(selectionError);
                 return;
             }
 
@@ -99,6 +111,20 @@ namespace CyberWizard.Gameplay.GameFlow
             SetGameplayEnabled(true);
             ChangePhase(GamePhase.Wave);
             waveDirector.StartSchedule();
+        }
+
+        public void SelectNextLevel()
+        {
+            if (CurrentPhase != GamePhase.Ready || LevelCount < 2)
+            {
+                return;
+            }
+
+            var nextIndex = (SelectedLevelIndex + 1) % LevelCount;
+            if (!TrySelectLevel(nextIndex, out var selectionError))
+            {
+                Fail(selectionError);
+            }
         }
 
         public void Replay()
@@ -184,6 +210,46 @@ namespace CyberWizard.Gameplay.GameFlow
             FailureReason = reason;
             Debug.LogError(reason, this);
             ChangePhase(GamePhase.Failed);
+        }
+
+        private bool TrySelectLevel(int index, out string error)
+        {
+            if (index < 0 || index >= LevelCount)
+            {
+                error = $"關卡索引超出範圍：{index}。";
+                return false;
+            }
+
+            var relativePath = scheduleRelativePaths[index];
+            if (!LevelScheduleLoader.TryLoadFromStreamingAssets(
+                    relativePath,
+                    out var schedule,
+                    out var loadError))
+            {
+                error = loadError;
+                return false;
+            }
+
+            if (!waveDirector.Initialize(schedule, out var initializeError))
+            {
+                error = initializeError;
+                return false;
+            }
+
+            SelectedLevelIndex = index;
+            SelectedLevelId = schedule.levelId;
+            SelectedLevelName = string.IsNullOrWhiteSpace(schedule.displayName)
+                ? schedule.levelId
+                : schedule.displayName;
+            SelectedLevelDifficulty = string.IsNullOrWhiteSpace(schedule.difficulty)
+                ? "未標示"
+                : schedule.difficulty;
+            SelectedLevelDescription = schedule.description ?? string.Empty;
+            _retainedLevelIndex = index;
+            error = string.Empty;
+            Debug.Log($"[PrototypeFlow] LevelSelected id={SelectedLevelId} path={relativePath}", this);
+            LevelChanged?.Invoke();
+            return true;
         }
 
         private void SetGameplayEnabled(bool enabled)

@@ -8,6 +8,8 @@ using CyberWizard.Gameplay.Player;
 using CyberWizard.Gameplay.Towers;
 using CyberWizard.Gameplay.Waves;
 using UnityEngine;
+using CyberWizard.Core;
+using CyberWizard.Presentation;
 
 namespace CyberWizard.Gameplay.GameFlow
 {
@@ -43,10 +45,29 @@ namespace CyberWizard.Gameplay.GameFlow
         {
             if (HasCommandLineArgument("-smokeTest"))
             {
+                if (gameFlow != null)
+                {
+                    gameFlow.PhaseChanged += HandleSmokePhaseChanged;
+                }
                 StartCoroutine(HasCommandLineArgument("-enemyOutpostSmoke")
                     ? RunEnemyOutpostScenario()
                     : RunSmokeScenario());
             }
+        }
+
+        private void HandleSmokePhaseChanged(GamePhase phase)
+        {
+            if (phase != GamePhase.Ended && phase != GamePhase.Defeat)
+            {
+                return;
+            }
+
+            Debug.Log(
+                $"[MvpSmoke] PoolMetrics " +
+                $"projectileCreated={TowerProjectile.CreatedCount} " +
+                $"projectileReused={TowerProjectile.ReusedCount} " +
+                $"pulseCreated={PrototypePulseEffect.CreatedCount} " +
+                $"pulseReused={PrototypePulseEffect.ReusedCount}");
         }
 
         private IEnumerator RunEnemyOutpostScenario()
@@ -150,6 +171,14 @@ namespace CyberWizard.Gameplay.GameFlow
             }
 
             return false;
+        }
+
+        private void OnDestroy()
+        {
+            if (gameFlow != null)
+            {
+                gameFlow.PhaseChanged -= HandleSmokePhaseChanged;
+            }
         }
     }
 }

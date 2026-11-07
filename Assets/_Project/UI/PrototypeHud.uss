@@ -25,6 +25,13 @@
     color: rgb(151, 211, 255);
 }
 
+.hud-level-summary {
+    max-width: 340px;
+    margin-top: 5px;
+    color: rgb(196, 203, 214);
+    white-space: normal;
+}
+
 .boss-line {
     color: rgb(255, 112, 112);
     -unity-font-style: bold;

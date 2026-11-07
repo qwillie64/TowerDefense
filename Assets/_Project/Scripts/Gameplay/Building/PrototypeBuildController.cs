@@ -27,6 +27,8 @@ namespace CyberWizard.Gameplay.Building
         private Transform _rangePreview;
         private bool _hasGroundPoint;
         private Vector3 _groundPoint;
+        private TowerPlacementValidator _placementValidator;
+        private TowerFactory _towerFactory;
 
         public event Action Changed;
 
@@ -52,6 +54,7 @@ namespace CyberWizard.Gameplay.Building
             waveDirector = newWaveDirector;
             towerDefinitions = newTowerDefinitions;
             soldierRegistry = newSoldierRegistry;
+            CreateServices();
         }
 
         private void Update()
@@ -118,9 +121,10 @@ namespace CyberWizard.Gameplay.Building
         {
             SelectedElement = element;
             var definition = FindDefinition(element);
+            var stats = TowerAssembler.Assemble(definition);
             StatusMessage = definition == null
                 ? $"找不到 {GetElementName(element)}塔資料"
-                : $"已選擇 {GetElementName(element)}塔｜傷害 {definition.AttackDamage:0}｜射程 {definition.AttackRange:0.0}";
+                : $"已選擇 {GetElementName(element)}塔｜傷害 {stats.AttackDamage:0}｜射程 {stats.AttackRange:0.0}｜{definition.PartSummary}";
             Changed?.Invoke();
         }
 
@@ -163,7 +167,7 @@ namespace CyberWizard.Gameplay.Building
             }
 
             var definition = FindDefinition(SelectedElement);
-            var range = definition != null ? definition.AttackRange : 1f;
+            var range = definition != null ? definition.RuntimeStats.AttackRange : 1f;
             _rangePreview.localScale = new Vector3(range * 2f, 0.015f, range * 2f);
         }
 
@@ -210,62 +214,57 @@ namespace CyberWizard.Gameplay.Building
         private bool TryBuildTower()
         {
             var definition = FindDefinition(SelectedElement);
-            if (definition == null)
+            EnsureServices();
+            var placement = _placementValidator.Validate(
+                _groundPoint,
+                _hasGroundPoint,
+                definition);
+            if (!placement.IsValid)
             {
-                StatusMessage = "找不到所選元素塔的資料";
+                StatusMessage = placement.Message;
                 Changed?.Invoke();
                 return false;
             }
 
-            var failure = ValidatePlacement();
-            if (!string.IsNullOrEmpty(failure))
-            {
-                StatusMessage = failure;
-                Changed?.Invoke();
-                return false;
-            }
-
-            if (!wallet.TrySpend(definition.BuildCost))
+            var stats = definition.RuntimeStats;
+            if (!wallet.TrySpend(stats.BuildCost))
             {
                 StatusMessage = "資源不足";
                 Changed?.Invoke();
                 return false;
             }
 
-            var towerObject = new GameObject($"Tower_{SelectedElement}_{towerRegistry.Count + 1}");
-            towerObject.transform.position = _groundPoint;
+            if (!_towerFactory.TryCreate(definition, _groundPoint, out _, out var factoryError))
+            {
+                wallet.Add(stats.BuildCost);
+                StatusMessage = factoryError;
+                Changed?.Invoke();
+                return false;
+            }
 
-            var basePart = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
-            basePart.name = "Base";
-            basePart.transform.SetParent(towerObject.transform, false);
-            basePart.transform.localScale = new Vector3(1f, 0.5f, 1f);
-
-            var topPart = GameObject.CreatePrimitive(definition.PrototypeTopShape);
-            topPart.name = "Top";
-            topPart.transform.SetParent(towerObject.transform, false);
-            topPart.transform.localPosition = new Vector3(0f, 1.1f, 0f);
-            topPart.transform.localScale = new Vector3(0.7f, 0.7f, 0.7f);
-
-            var tower = towerObject.AddComponent<TowerController>();
-            tower.Initialize(definition, waveDirector, towerRegistry, soldierRegistry);
-            PrototypeMaterialLibrary.Apply(towerObject, PrototypeMaterialRole.Player);
-            StatusMessage = $"已建造 {GetElementName(SelectedElement)}塔";
+            StatusMessage = $"已建造 {GetElementName(SelectedElement)}塔｜{definition.PartSummary}";
             Changed?.Invoke();
             return true;
         }
 
-        private string ValidatePlacement()
+        private void EnsureServices()
         {
-            if (!_hasGroundPoint) return "沒有有效的地面位置";
-            if (territory == null || !territory.IsCaptured) return "必須先佔領據點";
-            if (!territory.ContainsBuildPosition(_groundPoint)) return "超出已佔領區域";
-            if (Mathf.Abs(_groundPoint.x) < 1.6f) return "不能建在敵人道路上";
-            if (!towerRegistry.CanAdd) return "已達塔數上限";
-            if (!towerRegistry.IsPositionFree(_groundPoint, 2f)) return "距離其他塔太近";
-            var definition = FindDefinition(SelectedElement);
-            if (definition == null) return "找不到所選元素塔的資料";
-            if (!wallet.CanAfford(definition.BuildCost)) return "資源不足";
-            return string.Empty;
+            if (_placementValidator == null || _towerFactory == null)
+            {
+                CreateServices();
+            }
+        }
+
+        private void CreateServices()
+        {
+            _placementValidator = new TowerPlacementValidator(
+                territory,
+                towerRegistry,
+                wallet);
+            _towerFactory = new TowerFactory(
+                waveDirector,
+                towerRegistry,
+                soldierRegistry);
         }
 
         private void TryRepairNearestTower()

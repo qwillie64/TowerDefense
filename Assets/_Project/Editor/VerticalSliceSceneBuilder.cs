@@ -31,6 +31,7 @@ namespace CyberWizard.EditorTools
         private const string PaletteFolder = "Assets/_Project/Resources/PrototypePalette";
         private const string EnemyDataFolder = "Assets/_Project/Data/Enemies";
         private const string TowerDataFolder = "Assets/_Project/Data/Towers";
+        private const string TowerPartDataFolder = "Assets/_Project/Data/TowerParts";
 
         [MenuItem("CyberWizard/Build Vertical Slice Scene")]
         public static void Build()
@@ -117,7 +118,11 @@ namespace CyberWizard.EditorTools
             var gameFlow = systems.AddComponent<PrototypeGameFlowController>();
             gameFlow.Configure(
                 waveDirector,
-                "Levels/level_01.json",
+                new[]
+                {
+                    "Levels/level_01.json",
+                    "Levels/level_02.json"
+                },
                 baseCore,
                 player);
 
@@ -231,25 +236,119 @@ namespace CyberWizard.EditorTools
             EnsureFolder(PaletteFolder);
             EnsureFolder(EnemyDataFolder);
             EnsureFolder(TowerDataFolder);
+            EnsureFolder(TowerPartDataFolder);
         }
 
         private static TowerDefinition[] CreateTowerDefinitions()
         {
+            var balancedBase = CreateOrUpdateTowerPart(
+                "BaseBalanced.asset", "base_balanced", "均衡塔基", TowerPartSlot.Base,
+                PrimitiveType.Cylinder, new Vector3(1f, 0.45f, 1f),
+                1f, 1f, 0f, 1f, 1f, 1f, 0);
+            var fortifiedBase = CreateOrUpdateTowerPart(
+                "BaseFortified.asset", "base_fortified", "重型塔基", TowerPartSlot.Base,
+                PrimitiveType.Cylinder, new Vector3(1.15f, 0.55f, 1.15f),
+                1.2f, 0.95f, 0f, 1f, 1f, 1f, 4);
+            var focusBody = CreateOrUpdateTowerPart(
+                "BodyFocus.asset", "body_focus", "聚能塔身", TowerPartSlot.Body,
+                PrimitiveType.Cube, new Vector3(0.65f, 0.9f, 0.65f),
+                1f, 1.15f, 0.25f, 1.05f, 1f, 1f, 4);
+            var rapidBody = CreateOrUpdateTowerPart(
+                "BodyRapid.asset", "body_rapid", "迅捷塔身", TowerPartSlot.Body,
+                PrimitiveType.Capsule, new Vector3(0.6f, 0.9f, 0.6f),
+                0.9f, 0.85f, 0.5f, 0.78f, 1.15f, 0.85f, 4);
+            var channelBody = CreateOrUpdateTowerPart(
+                "BodyChannel.asset", "body_channel", "導能塔身", TowerPartSlot.Body,
+                PrimitiveType.Cylinder, new Vector3(0.68f, 0.9f, 0.68f),
+                1f, 1f, 0.9f, 1.05f, 1.05f, 1f, 4);
+            var fireTop = CreateOrUpdateTowerPart(
+                "TopFire.asset", "top_fire", "烈焰塔頂", TowerPartSlot.Top,
+                PrimitiveType.Sphere, new Vector3(0.72f, 0.72f, 0.72f),
+                1f, 1.1f, 0.25f, 0.95f, 1.1f, 1.05f, 3);
+            var waterTop = CreateOrUpdateTowerPart(
+                "TopWater.asset", "top_water", "潮汐塔頂", TowerPartSlot.Top,
+                PrimitiveType.Cube, new Vector3(0.68f, 0.68f, 0.68f),
+                1f, 0.95f, 0.65f, 0.95f, 1f, 0.9f, 3);
+            var windTop = CreateOrUpdateTowerPart(
+                "TopWind.asset", "top_wind", "風暴塔頂", TowerPartSlot.Top,
+                PrimitiveType.Capsule, new Vector3(0.58f, 0.7f, 0.58f),
+                1f, 0.9f, 0.75f, 0.8f, 1.25f, 0.9f, 3);
+            var earthTop = CreateOrUpdateTowerPart(
+                "TopEarth.asset", "top_earth", "磐石塔頂", TowerPartSlot.Top,
+                PrimitiveType.Cylinder, new Vector3(0.76f, 0.65f, 0.76f),
+                1.15f, 1.15f, 0.15f, 1.1f, 0.9f, 1.1f, 3);
+
+            var fire = CreateOrUpdateTowerDefinition(
+                "TowerFire.asset", "tower_fire", ElementType.Fire,
+                90f, 24f, 6.5f, 0.9f, 16f, 2.2f, 25, PrimitiveType.Sphere);
+            fire.SetParts(balancedBase, focusBody, fireTop);
+            EditorUtility.SetDirty(fire);
+
+            var water = CreateOrUpdateTowerDefinition(
+                "TowerWater.asset", "tower_water", ElementType.Water,
+                105f, 16f, 7f, 0.75f, 14f, 1.6f, 25, PrimitiveType.Cube);
+            water.SetParts(fortifiedBase, channelBody, waterTop);
+            EditorUtility.SetDirty(water);
+
+            var wind = CreateOrUpdateTowerDefinition(
+                "TowerWind.asset", "tower_wind", ElementType.Wind,
+                80f, 14f, 6f, 0.55f, 19f, 1.4f, 25, PrimitiveType.Capsule);
+            wind.SetParts(balancedBase, rapidBody, windTop);
+            EditorUtility.SetDirty(wind);
+
+            var earth = CreateOrUpdateTowerDefinition(
+                "TowerEarth.asset", "tower_earth", ElementType.Earth,
+                130f, 32f, 6f, 1.35f, 12f, 2.8f, 25, PrimitiveType.Cylinder);
+            earth.SetParts(fortifiedBase, focusBody, earthTop);
+            EditorUtility.SetDirty(earth);
+
             return new[]
             {
-                CreateOrUpdateTowerDefinition(
-                    "TowerFire.asset", "tower_fire", ElementType.Fire,
-                    90f, 24f, 6.5f, 0.9f, 16f, 2.2f, 25, PrimitiveType.Sphere),
-                CreateOrUpdateTowerDefinition(
-                    "TowerWater.asset", "tower_water", ElementType.Water,
-                    105f, 16f, 7f, 0.75f, 14f, 1.6f, 25, PrimitiveType.Cube),
-                CreateOrUpdateTowerDefinition(
-                    "TowerWind.asset", "tower_wind", ElementType.Wind,
-                    80f, 14f, 6f, 0.55f, 19f, 1.4f, 25, PrimitiveType.Capsule),
-                CreateOrUpdateTowerDefinition(
-                    "TowerEarth.asset", "tower_earth", ElementType.Earth,
-                    130f, 32f, 6f, 1.35f, 12f, 2.8f, 25, PrimitiveType.Cylinder)
+                fire,
+                water,
+                wind,
+                earth
             };
+        }
+
+        private static TowerPartDefinition CreateOrUpdateTowerPart(
+            string fileName,
+            string partId,
+            string displayName,
+            TowerPartSlot slot,
+            PrimitiveType shape,
+            Vector3 scale,
+            float durability,
+            float damage,
+            float range,
+            float interval,
+            float projectileSpeed,
+            float shotCost,
+            int buildCost)
+        {
+            var path = $"{TowerPartDataFolder}/{fileName}";
+            var part = AssetDatabase.LoadAssetAtPath<TowerPartDefinition>(path);
+            if (part == null)
+            {
+                part = ScriptableObject.CreateInstance<TowerPartDefinition>();
+                AssetDatabase.CreateAsset(part, path);
+            }
+
+            part.Configure(
+                partId,
+                displayName,
+                slot,
+                shape,
+                scale,
+                durability,
+                damage,
+                range,
+                interval,
+                projectileSpeed,
+                shotCost,
+                buildCost);
+            EditorUtility.SetDirty(part);
+            return part;
         }
 
         private static TowerDefinition CreateOrUpdateTowerDefinition(
@@ -314,6 +413,18 @@ namespace CyberWizard.EditorTools
                 PrimitiveType.Sphere,
                 new Vector3(0.9f, 0.9f, 0.9f));
 
+            var tank = CreateOrUpdateEnemyDefinition(
+                $"{EnemyDataFolder}/EnemyTank.asset",
+                "enemy_tank",
+                "重裝敵人",
+                180f,
+                1.5f,
+                18f,
+                12,
+                1.2f,
+                PrimitiveType.Cylinder,
+                new Vector3(1.2f, 1.2f, 1.2f));
+
             var boss = CreateOrUpdateEnemyDefinition(
                 $"{EnemyDataFolder}/EnemyBoss.asset",
                 "enemy_boss",
@@ -327,7 +438,7 @@ namespace CyberWizard.EditorTools
                 new Vector3(2f, 2.5f, 2f),
                 true);
 
-            return new[] { basic, fast, boss };
+            return new[] { basic, fast, tank, boss };
         }
 
         private static EnemyBehaviorSettings CreateEnemyBehaviorSettings()

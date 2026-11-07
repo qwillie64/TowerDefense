@@ -16,6 +16,7 @@ namespace CyberWizard.Gameplay.Towers
         private WorldHealthBar _healthBar;
         private Vitality _vitality;
         private TowerDefinition _definition;
+        private TowerRuntimeStats _runtimeStats;
         private GameObject _rangeIndicator;
         private SoldierRegistry _soldierRegistry;
 
@@ -30,7 +31,7 @@ namespace CyberWizard.Gameplay.Towers
         public float Durability => _vitality != null ? _vitality.Current : 0f;
         public float MaxDurability => _vitality != null ? _vitality.Maximum : 100f;
         public float AttackRange => _definition != null
-            ? _definition.AttackRange + (Level - 1) * _definition.RangePerLevel
+            ? _runtimeStats.AttackRange + (Level - 1) * _definition.RangePerLevel
             : 6.5f;
         public bool CanUpgrade => _definition != null && Level < _definition.MaxLevel;
         public int UpgradeCost => _definition != null
@@ -44,13 +45,14 @@ namespace CyberWizard.Gameplay.Towers
             SoldierRegistry soldierRegistry = null)
         {
             _definition = definition;
+            _runtimeStats = TowerAssembler.Assemble(definition);
             Element = definition != null ? definition.Element : ElementType.Fire;
             _waveDirector = waveDirector;
             _registry = registry;
             _soldierRegistry = soldierRegistry;
             _vitality = gameObject.AddComponent<Vitality>();
             _vitality.Changed += HandleVitalityChanged;
-            _vitality.Initialize(definition != null ? definition.MaxDurability : 100f);
+            _vitality.Initialize(_runtimeStats.MaxDurability);
             _registry.Register(this);
             _healthBar = WorldHealthBar.Create(
                 transform,
@@ -82,8 +84,8 @@ namespace CyberWizard.Gameplay.Towers
 
             FireProjectile(target);
             _vitality.TakeDamage(
-                _definition != null ? _definition.DurabilityCostPerShot : 2f);
-            _attackCooldown = _definition != null ? _definition.AttackInterval : 1f;
+                _runtimeStats.DurabilityCostPerShot);
+            _attackCooldown = _runtimeStats.AttackInterval;
         }
 
         public void TakeDamage(float amount)
@@ -163,25 +165,15 @@ namespace CyberWizard.Gameplay.Towers
 
         private void FireProjectile(IDamageable target)
         {
-            var projectileObject = GameObject.CreatePrimitive(PrimitiveType.Sphere);
-            projectileObject.name = $"{Element} Tower Projectile";
-            projectileObject.transform.position = transform.position + Vector3.up * 1.8f;
-            projectileObject.transform.localScale = Vector3.one * 0.28f;
-            var collider = projectileObject.GetComponent<Collider>();
-            if (collider != null)
-            {
-                Destroy(collider);
-            }
-
-            PrototypeMaterialLibrary.Apply(projectileObject, PrototypeMaterialRole.Player);
-            var projectile = projectileObject.AddComponent<TowerProjectile>();
-            projectile.Initialize(
+            TowerProjectile.Spawn(
+                transform.position + Vector3.up * 1.8f,
+                Element,
                 target,
                 _definition != null
-                    ? _definition.AttackDamage *
+                    ? _runtimeStats.AttackDamage *
                       (1f + (Level - 1) * _definition.DamagePerLevel)
                     : 20f,
-                _definition != null ? _definition.ProjectileSpeed : 15f);
+                _runtimeStats.ProjectileSpeed);
         }
 
         public void SetRangeVisible(bool visible)

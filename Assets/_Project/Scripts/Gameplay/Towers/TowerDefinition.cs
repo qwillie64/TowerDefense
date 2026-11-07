@@ -22,6 +22,9 @@ namespace CyberWizard.Gameplay.Towers
         [SerializeField, Min(0f)] private float damagePerLevel = 0.3f;
         [SerializeField, Min(0f)] private float rangePerLevel = 0.4f;
         [SerializeField, Min(0f)] private float durabilityPerLevel = 20f;
+        [SerializeField] private TowerPartDefinition basePart;
+        [SerializeField] private TowerPartDefinition bodyPart;
+        [SerializeField] private TowerPartDefinition topPart;
 
         public string TowerTypeId => towerTypeId;
         public ElementType Element => element;
@@ -38,6 +41,12 @@ namespace CyberWizard.Gameplay.Towers
         public float DamagePerLevel => damagePerLevel;
         public float RangePerLevel => rangePerLevel;
         public float DurabilityPerLevel => durabilityPerLevel;
+        public TowerPartDefinition BasePart => basePart;
+        public TowerPartDefinition BodyPart => bodyPart;
+        public TowerPartDefinition TopPart => topPart;
+        public TowerRuntimeStats RuntimeStats => TowerAssembler.Assemble(this);
+        public string PartSummary =>
+            $"{GetPartName(basePart)}／{GetPartName(bodyPart)}／{GetPartName(topPart)}";
 
         public void Configure(
             string typeId,
@@ -71,6 +80,27 @@ namespace CyberWizard.Gameplay.Towers
             damagePerLevel = Mathf.Max(0f, newDamagePerLevel);
             rangePerLevel = Mathf.Max(0f, newRangePerLevel);
             durabilityPerLevel = Mathf.Max(0f, newDurabilityPerLevel);
+        }
+
+        public void SetParts(
+            TowerPartDefinition newBasePart,
+            TowerPartDefinition newBodyPart,
+            TowerPartDefinition newTopPart)
+        {
+            basePart = newBasePart != null && newBasePart.Slot == TowerPartSlot.Base
+                ? newBasePart
+                : null;
+            bodyPart = newBodyPart != null && newBodyPart.Slot == TowerPartSlot.Body
+                ? newBodyPart
+                : null;
+            topPart = newTopPart != null && newTopPart.Slot == TowerPartSlot.Top
+                ? newTopPart
+                : null;
+        }
+
+        private static string GetPartName(TowerPartDefinition part)
+        {
+            return part != null ? part.DisplayName : "標準部件";
         }
 
         private void OnValidate()

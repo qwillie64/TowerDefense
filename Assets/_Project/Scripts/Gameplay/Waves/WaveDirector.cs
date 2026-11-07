@@ -110,6 +110,14 @@ namespace CyberWizard.Gameplay.Waves
             }
 
             Array.Sort(_waves, (left, right) => left.Data.startTime.CompareTo(right.Data.startTime));
+            _running = false;
+            _completionReported = false;
+            _startedWaveCount = 0;
+            _pendingSpawnCount = 0;
+            _spawnedCount = 0;
+            _elapsedTime = 0f;
+            ActiveBoss = null;
+            StatsChanged?.Invoke();
             error = string.Empty;
             return true;
         }

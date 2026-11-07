@@ -15,6 +15,8 @@
         <ui:Label name="camera-label" text="視角：戰術俯視（Tab 切換）" class="hud-line" />
         <ui:Label name="boss-label" text="關卡王：--" class="hud-line boss-line hidden" />
         <ui:Label name="message-label" text="正在載入關卡資料" class="hud-message" />
+        <ui:Button name="level-button" text="關卡：灰原防線（點擊切換）" class="hud-button" />
+        <ui:Label name="level-summary-label" text="難度：入門｜單路基礎防守" class="hud-level-summary" />
         <ui:Button name="start-button" text="開始遊戲" class="hud-button" />
         <ui:Button name="neutral-toggle-button" text="中立據點模組：開啟" class="hud-button" />
         <ui:Button name="pause-button" text="暫停遊戲" class="hud-button hidden" />

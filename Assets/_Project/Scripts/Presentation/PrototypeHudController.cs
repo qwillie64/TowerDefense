@@ -41,7 +41,9 @@ namespace CyberWizard.Presentation
         private Label _messageLabel;
         private Label _cameraLabel;
         private Label _bossLabel;
+        private Label _levelSummaryLabel;
         private Button _startButton;
+        private Button _levelButton;
         private Button _replayButton;
         private Button _pauseButton;
         private Button _neutralToggleButton;
@@ -90,7 +92,9 @@ namespace CyberWizard.Presentation
             _messageLabel = root.Q<Label>("message-label");
             _cameraLabel = root.Q<Label>("camera-label");
             _bossLabel = root.Q<Label>("boss-label");
+            _levelSummaryLabel = root.Q<Label>("level-summary-label");
             _startButton = root.Q<Button>("start-button");
+            _levelButton = root.Q<Button>("level-button");
             _replayButton = root.Q<Button>("replay-button");
             _pauseButton = root.Q<Button>("pause-button");
             _neutralToggleButton = root.Q<Button>("neutral-toggle-button");
@@ -99,6 +103,7 @@ namespace CyberWizard.Presentation
         private void Start()
         {
             if (gameFlow != null) gameFlow.PhaseChanged += HandlePhaseChanged;
+            if (gameFlow != null) gameFlow.LevelChanged += Refresh;
             if (waveDirector != null) waveDirector.StatsChanged += Refresh;
             if (waveDirector != null) waveDirector.WaveBegan += HandleWaveBegan;
             if (waveDirector != null) waveDirector.WaveCleared += HandleWaveCleared;
@@ -115,6 +120,7 @@ namespace CyberWizard.Presentation
                 neutralModule.Outpost.Changed += Refresh;
             if (cameraController != null) cameraController.ModeChanged += HandleCameraModeChanged;
             if (_startButton != null) _startButton.clicked += HandleStartClicked;
+            if (_levelButton != null) _levelButton.clicked += HandleLevelClicked;
             if (_replayButton != null) _replayButton.clicked += HandleReplayClicked;
             if (_pauseButton != null) _pauseButton.clicked += HandlePauseClicked;
             if (_neutralToggleButton != null) _neutralToggleButton.clicked += HandleNeutralToggleClicked;
@@ -144,6 +150,7 @@ namespace CyberWizard.Presentation
         private void HandleFloatChanged(float value) => Refresh();
         private void HandleCameraModeChanged(PrototypeCameraMode mode) => Refresh();
         private void HandleStartClicked() => gameFlow?.StartGame();
+        private void HandleLevelClicked() => gameFlow?.SelectNextLevel();
         private void HandleReplayClicked() => gameFlow?.Replay();
         private void HandlePauseClicked() => gameFlow?.TogglePause();
         private void HandleNeutralToggleClicked()
@@ -214,6 +221,21 @@ namespace CyberWizard.Presentation
                 _startButton.style.display = gameFlow.CurrentPhase == GamePhase.Ready
                     ? DisplayStyle.Flex
                     : DisplayStyle.None;
+            if (_levelButton != null)
+            {
+                _levelButton.style.display = gameFlow.CurrentPhase == GamePhase.Ready && gameFlow.LevelCount > 1
+                    ? DisplayStyle.Flex
+                    : DisplayStyle.None;
+                _levelButton.text = $"關卡：{gameFlow.SelectedLevelName}（點擊切換）";
+            }
+            if (_levelSummaryLabel != null)
+            {
+                _levelSummaryLabel.style.display = gameFlow.CurrentPhase == GamePhase.Ready
+                    ? DisplayStyle.Flex
+                    : DisplayStyle.None;
+                _levelSummaryLabel.text =
+                    $"難度：{gameFlow.SelectedLevelDifficulty}｜{gameFlow.SelectedLevelDescription}";
+            }
             if (_replayButton != null)
                 _replayButton.style.display =
                     gameFlow.CurrentPhase == GamePhase.Ended || gameFlow.CurrentPhase == GamePhase.Defeat
@@ -246,7 +268,7 @@ namespace CyberWizard.Presentation
                         _messageLabel.text = "正在載入關卡資料";
                         break;
                     case GamePhase.Ready:
-                        _messageLabel.text = "按下開始遊戲進入關卡";
+                        _messageLabel.text = $"已選擇 {gameFlow.SelectedLevelName}，按下開始遊戲";
                         break;
                     case GamePhase.Wave:
                         if (Time.unscaledTime < _waveNoticeUntil)
@@ -335,6 +357,7 @@ namespace CyberWizard.Presentation
         private void OnDisable()
         {
             if (gameFlow != null) gameFlow.PhaseChanged -= HandlePhaseChanged;
+            if (gameFlow != null) gameFlow.LevelChanged -= Refresh;
             if (waveDirector != null) waveDirector.StatsChanged -= Refresh;
             if (waveDirector != null) waveDirector.WaveBegan -= HandleWaveBegan;
             if (waveDirector != null) waveDirector.WaveCleared -= HandleWaveCleared;
@@ -351,6 +374,7 @@ namespace CyberWizard.Presentation
                 neutralModule.Outpost.Changed -= Refresh;
             if (cameraController != null) cameraController.ModeChanged -= HandleCameraModeChanged;
             if (_startButton != null) _startButton.clicked -= HandleStartClicked;
+            if (_levelButton != null) _levelButton.clicked -= HandleLevelClicked;
             if (_replayButton != null) _replayButton.clicked -= HandleReplayClicked;
             if (_pauseButton != null) _pauseButton.clicked -= HandlePauseClicked;
             if (_neutralToggleButton != null) _neutralToggleButton.clicked -= HandleNeutralToggleClicked;
