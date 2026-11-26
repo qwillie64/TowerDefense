@@ -1,0 +1,26 @@
+{
+  "version": 1,
+  "levelId": "level1_rust_alley",
+  "displayName": "鏽巷",
+  "difficulty": "標準",
+  "description": "敵軍從左下角道路出發，沿兩條路線進攻黃銅閘門，共兩波",
+  "waves": [
+    {
+      "waveId": "wave_01",
+      "startTime": 5.0,
+      "enemies": [
+        { "enemyTypeId": "enemy_level0", "count": 4, "spawnPointId": "spawn_southwest", "pathId": "path_upper", "objective": "siege", "spawnInterval": 1.0 },
+        { "enemyTypeId": "enemy_level0", "count": 4, "spawnPointId": "spawn_southwest", "pathId": "path_right", "objective": "siege", "spawnInterval": 1.0 }
+      ]
+    },
+    {
+      "waveId": "wave_02",
+      "startTime": 45.0,
+      "enemies": [
+        { "enemyTypeId": "enemy_level0", "count": 4, "spawnPointId": "spawn_southwest", "pathId": "path_upper", "objective": "siege", "spawnInterval": 1.0 },
+        { "enemyTypeId": "enemy_level0", "count": 4, "spawnPointId": "spawn_southwest", "pathId": "path_right", "objective": "siege", "spawnInterval": 1.0 },
+        { "enemyTypeId": "enemy_level0", "count": 4, "spawnPointId": "spawn_southwest", "pathId": "path_right", "objective": "siege", "spawnInterval": 1.0 }
+      ]
+    }
+  ]
+}

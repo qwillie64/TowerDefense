@@ -1,0 +1,16 @@
+{
+    "name": "CyberWizard.Runtime",
+    "rootNamespace": "CyberWizard",
+    "references": [
+        "GUID:7b1a8d9f4355a214f9a95471fa510c86"
+    ],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}
