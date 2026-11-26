@@ -58,7 +58,7 @@ Level1_Map
 │  ├─ Walls                  # Wall_North_West/East、Wall_West、Wall_East、
 │  │                         # Wall_South（斜向擋土牆，連續無缺口）
 │  ├─ Gate_Brass             # Gate_Door、Gate_Pillar_*、Gate_FlankWall_*、Gate_Barrier、
-│  │                         # NoPassZone_Gate（紅色禁區）、Label_Gate、Gate_Core
+│  │                         # NoPassZone_Gate（紅色禁區）、Gate_Core（Label_Gate 已於 2026-11-26 刪除）
 │  ├─ Industrial             # Pipe_NorthWest、Pipe_NorthEast、Pipe_NorthEast_Riser、Pipe_East
 │  └─ Buildings              # Block_Central（5 棟）、Block_West（4 棟）、Block_East（1 棟）
 ├─ Terraces                  # Terrace_05、Terrace_07、Terrace_09（水平平台，含 MeshCollider）
@@ -143,7 +143,7 @@ Level1_Map
   - 防區：半透明藍色填色加亮藍外框，底下的平台為藍灰色。
   - 閘門禁區：半透明紅色。
   - 上城區（下層）：墨綠色地面，與鏽巷的深灰地面區分。
-- 場景內有文字標籤：「防區 5／7／9」、「5號塔／7號塔／9號塔」、「黃銅閘門（無法通行）」。上城區與鍋爐不加文字標籤。
+- 場景內有文字標籤：「防區 5／7／9」、「5號塔／7號塔／9號塔」。原本的「黃銅閘門（無法通行）」標籤（`Label_Gate`）已於 2026-11-26 依使用者要求刪除。上城區與鍋爐不加文字標籤。
 - 道路連通關係（Y 字形，取代原本的中央十字路口）：
   - 閘門 ↔ `Road_GateApproach`（X = 10）↔ 閘門前的 Y 字路口（約 Z = 90）。
   - Y 字路口 ↔ `Road_WestDiagonal`（沿防區 5 東南緣往西南）↔ 左下角與 `Road_South` 會合。
@@ -311,6 +311,13 @@ Level1_Map
   - 生成點只剩左下角道路上的 `Spawn_SouthWest`。
   - 路線只剩兩條：路徑一直接到閘門；路徑二往東走到東側斜路再左轉往閘門（細節見下一節）。
 - GameObject 由 125 個變為 111 個。修改方式同上（專案副本中的一次性 Editor 腳本），沒有修改執行期腳本。
+
+**2026-11-26　刪除黃銅閘門的地面文字標籤**
+
+- 依使用者要求刪除 `Gate_Brass/Label_Gate`（紅色禁區上的「黃銅閘門（無法通行）」文字）。
+- 修改前：閘門前的紅色禁區上有白色 `TextMesh` 標籤。修改後：只剩紅色禁區底色，閘門本體、禁區、血條與 HUD 都不變。
+- 做法：Unity 編輯器開著時，直接編輯場景檔，移除該物件的 GameObject、Transform、MeshRenderer、TextMesh 四個區塊，以及父物件子清單中的那一項。程式碼與測試都沒有引用這個物件。
+- 驗證：在專案副本上截圖，確認文字已消失；EditMode、PlayMode 測試結果見「攻擊範圍改為 Raycast 投影網格、玩家射程放大」一節的修改紀錄。編輯器提示重新載入場景後的狀態**尚未驗證**。
 
 ---
 
@@ -555,7 +562,7 @@ Level_1 PlayMode 測試確認了以下事項（2026-11-26 起，此測試一開�
 | `Scripts/Presentation/ConeMesh.cs` | 產生圓錐網格（尖端朝 +Z），整個執行期間共用一份。 |
 | `Scripts/Presentation/ChevronStrip.cs` | 純計算：沿折線每隔固定距離放一個「>」箭頭，高度沿折線內插。 |
 | `Scripts/Presentation/WavePathPreview.cs` | 依 `WaveDirector` 的下一波資料顯示／隱藏各路線的箭頭；同一條路線只建立一次網格。 |
-| `Scripts/Presentation/TowerUpgradePrompt.cs` | 3D 升級提示面板：顯示塔號、血量、能量，以及三部位的目前等級、升級後數值與花費；同時顯示該塔射程圈。內容只在狀態改變時重建。 |
+| `Scripts/Presentation/TowerUpgradePrompt.cs` | 3D 升級提示面板：顯示塔號、血量、能量，以及三部位的目前等級、升級後數值與花費；同時顯示該塔射程圈（2026-11-26 起射程圈改為持續顯示，不再由提示面板控制）。內容只在狀態改變時重建。 |
 | `Scripts/Presentation/MinimapView.cs` | 把俯視攝影機設成右上角正方形（邊長為畫面高度的 32%），畫外框與玩家（青色）、敵人（紅色）標記點。 |
 | `Scripts/Presentation/GateDefenseHud.cs` | 原型 HUD：準星、能量、玩家與閘門血量、波次與下一波倒數、可升級的塔、操作說明、勝敗訊息。只讀取狀態。 |
 
@@ -576,7 +583,7 @@ Level_1 PlayMode 測試確認了以下事項（2026-11-26 起，此測試一開�
 | 資產 | 內容 |
 | --- | --- |
 | `Data/Towers/FixedTowerProfile.asset` | 三座塔共用的數值表。 |
-| `Materials/Level1Fx/Fx_PathArrow.mat` | URP Unlit 半透明，顏色 (1, 0.08, 0.05)，alpha 0.6。2026-11-26 改為 HDR 顏色 (3, 0.24, 0.15)，alpha 仍為 0.6，用於 Bloom 光暈。 |
+| `Materials/Level1Fx/Fx_PathArrow.mat` | URP Unlit 半透明，顏色 (1, 0.08, 0.05)，alpha 0.6。2026-11-26 曾改為 HDR 顏色 (3, 0.24, 0.15)；之後使用者在 Inspector 調為 (0.749, 0.060, 0.037)、alpha 0.5，亮度改由 `WavePathPreview.glowIntensity` 控制（見「敵方路線發光」一節的修改紀錄）。 |
 | `Materials/Level1Fx/Fx_RivetMetal.mat` | URP Lit，白色，Metallic 0.35、Smoothness 0.85。 |
 | `Materials/Level1Fx/Fx_MuzzleFlash.mat` | URP Particles/Unlit，Additive。 |
 | `Materials/Level1Fx/Fx_Smoke.mat` | URP Particles/Unlit，Alpha 混合。 |
@@ -665,7 +672,7 @@ Level1_Systems         # 新增元件：ResourceWallet、RewardService、Prototy
   - 左上角 HUD：能量、玩家血量、閘門血量、波次與下一波倒數、操作說明。
 - **操作**：
   - WASD 移動（依攝影機方向）、空白鍵跳躍。
-  - 滑鼠左鍵攻擊準星對準、且距離 3 以內的敵人（2026-11-26 放大為 4.5）。
+  - 滑鼠左鍵攻擊準星對準、且距離 3 以內的敵人（2026-11-26 放大為 4.5，之後再提升 1 倍為 9）。
   - 靠近塔時按 1 升級砲塔、2 升級塔身、3 升級塔底。
 - **地面路標**：關卡開始時，兩條路線上鋪滿紅色半透明「>」箭頭，指向敵人前進方向，一路延伸到閘門前；小地圖上也看得到。
 - **出生點**：地圖左下角持續冒出大片灰色煙霧，敵人從煙霧中出現。
@@ -673,7 +680,7 @@ Level1_Systems         # 新增元件：ResourceWallet、RewardService、Prototy
 - **升級提示**：玩家走到塔附近時：
   - 塔的左側或右側（選靠近畫面中央的一側）出現深色半透明面板，列出三個部位的等級、升級後數值與花費。
   - 能量不足的花費顯示為紅色，足夠時為黃色；按鍵失敗時該行會短暫顯示「能量不足」或「已滿級」。
-  - 地面同時顯示該塔的射程圈，HUD 也會顯示「可升級：N號塔」。（2026-11-26 起射程圈為貼地環帶，射程內有敵人時為紅色、沒有時為白色。）
+  - 地面同時顯示該塔的射程圈，HUD 也會顯示「可升級：N號塔」。（2026-11-26 起射程圈為貼地環帶，射程內有敵人時為紅色、沒有時為白色；之後又改為不論玩家遠近都持續顯示。）
 - **結束**：閘門被打破或所有波次清除時，畫面中央顯示失敗或勝利訊息，玩家停止操作、滑鼠游標釋放。
 
 ### 限制與待改善事項
@@ -729,7 +736,7 @@ Unity 編輯器當時沒有開啟，所以直接在專案上以 Unity 2022.3.62f
   - 能量不足時升級失敗。
   - 砲塔連升 4 級後攻擊 40、攻速 2.6，第 5 次回報已滿級。
   - 塔身升級後血量 220／220；塔底升級後射程 27；每次扣款金額正確。
-  - 離開後提示與射程圈消失。
+  - 離開後提示與射程圈消失。（2026-11-26 起射程圈持續顯示，測試改為檢查離開後射程圈仍在。）
 - **玩家**：
   - 出生點在閘門前 15 以內，血量 100，站在地面上。
   - 受到 100 傷害死亡後，在出生點重生並回滿血。
@@ -920,7 +927,7 @@ Assets/
 | --- | --- |
 | `Scripts/Presentation/ChevronStrip.cs` | `Settings` 新增 `Offset`：所有箭頭沿前進方向推進的距離，以 `Spacing` 為週期循環（`Mathf.Repeat`）。預設為 0，與原本的排列相同。 |
 | `Scripts/Presentation/WavePathPreview.cs` | 每條路線保存本地座標的路線點與自己的 `Mesh`；`LateUpdate` 依目前偏移量重建顯示中路線的網格。新增 `flowSpeed` 欄位與 `FlowOffset` 屬性。顯示與隱藏的時機不變。 |
-| `Materials/Level1Fx/Fx_PathArrow.mat` | `_BaseColor` 由 (1, 0.08, 0.05, 0.6) 改為 HDR (3, 0.24, 0.15, 0.6)。 |
+| `Materials/Level1Fx/Fx_PathArrow.mat` | `_BaseColor` 由 (1, 0.08, 0.05, 0.6) 改為 HDR (3, 0.24, 0.15, 0.6)。（已被修改紀錄中的做法取代：材質維持一般顏色，HDR 亮度在執行時套用。） |
 | `Settings/Level1PostProcess.asset`（新增） | 只含 Bloom 的 Volume Profile：Threshold 1、Intensity 1.5、Scatter 0.7，並開啟 High Quality Filtering。沒有加入 Tonemapping 等其他效果，以免改變整體色調。 |
 | `Scenes/Level_1.unity` | 新增 `Global Volume (Bloom)`；`Main Camera` 開啟 Post Processing（小地圖攝影機維持關閉）；調暗環境光與平行光（見下表）。 |
 | `Tests/EditMode/Level1CombatEditModeTests.cs` | 新增 1 項測試，驗證偏移量會讓箭頭往前推、超過一個間距後循環，且偏移剛好一個間距時與偏移 0 相同。 |
@@ -932,8 +939,9 @@ Assets/
 | 位置 | 參數 | 目前值 | 用途 |
 | --- | --- | --- | --- |
 | `WavePathPreview`（Level_1 場景） | `flowSpeed` | 3（暫定） | 箭頭流動速度（單位／秒）。設為 0 時箭頭靜止，也不會每幀重建網格。 |
-| `Fx_PathArrow.mat` | Base Color | HDR (3, 0.24, 0.15)、alpha 0.6（暫定） | 顏色倍數越高，光暈越強。 |
-| `Level1PostProcess.asset` → Bloom | Threshold／Intensity／Scatter | 1／1.5／0.7（暫定） | 發光門檻、強度與擴散範圍。 |
+| `Fx_PathArrow.mat` | Base Color | (0.749, 0.060, 0.037)、alpha 0.5（使用者調整） | 箭頭的色相與透明度。URP Unlit 的拾色器不是 HDR，數值會限制在 0～1。 |
+| `WavePathPreview`（Level_1 場景） | `glowIntensity` | 4（暫定） | 執行時把 Base Color 的 RGB 乘上此值。結果大於 Bloom 門檻 1 的部分才會發光。 |
+| `Level1PostProcess.asset` → Bloom | Threshold／Intensity／Scatter | 1／1.2／0.7（Intensity 由使用者從 1.5 調為 1.2） | 發光門檻、強度與擴散範圍。 |
 | Lighting 視窗 → Environment（Flat） | Ambient Color | (0.276, 0.288, 0.312)，修改前 (0.46, 0.48, 0.52) | 環境光，約為原本的 60%（暫定）。 |
 | `Directional Light` | Intensity | 0.8，修改前 1.1（暫定） | 平行光強度。 |
 
@@ -964,6 +972,28 @@ Assets/
 | 在使用者編輯器中的 Scene／Game 視圖觀感、在 Inspector 調整參數的即時效果 | **尚未驗證** |
 | 實際遊玩時，流動速度與光暈強度是否合適 | **尚未驗證**（目前皆為暫定值） |
 
+### 修改紀錄
+
+**2026-11-26　修正「地面路徑不發光」**
+
+- 現象：使用者回報地面路徑箭頭不再發光。
+- 原因：`Fx_PathArrow.mat` 的 Base Color 被改成 (0.749, 0.060, 0.037, 0.5)，Bloom 強度也由 1.5 改為 1.2，研判是在 Inspector 調整。URP Unlit 的 Base Color 拾色器不是 HDR，在 Inspector 調整後數值會被限制在 0～1，因此低於 Bloom 門檻 1，箭頭不再發光。Bloom 強度的調整不是原因。
+- 修改前：亮度直接寫在材質顏色裡（HDR 3.0），只要在 Inspector 調整顏色就會失效。
+- 修改後：材質只負責色相與透明度；`WavePathPreview` 新增 `glowIntensity`（暫定 4），建立箭頭時以 `MaterialPropertyBlock` 套用「材質顏色 RGB × glowIntensity、透明度不變」的 HDR 顏色，並新增 `GlowColor` 屬性。使用者調整的顏色、透明度與 Bloom 強度都保留不變。
+- 場景沒有修改：`glowIntensity` 使用程式預設值 4，可以在 `WavePathPreview` 的 Inspector 調整。
+- 測試：`PathArrows_ShowUpcomingWaveRoutesUntilThatWaveSpawns` 原本寫死「材質 alpha 0.6」，改為檢查 PropertyBlock 中的顏色等於 `GlowColor`、紅色分量大於 1，且透明度與材質相同。
+- 限制：`glowIntensity` 只在建立箭頭網格時套用，Play Mode 中修改不會立即生效；在 Play Mode 中修改材質顏色也一樣。小地圖攝影機沒有後製，小地圖上的箭頭不發光，只會因為 HDR 值被截斷而顯得更亮。
+
+驗證（Unity 編輯器開著，因此在專案副本上執行；副本已刪除）：
+
+| 項目 | 結果 |
+| --- | --- |
+| 編譯 | 沒有錯誤或警告。 |
+| EditMode 測試 | **21 項全數通過**。 |
+| PlayMode 測試 | 修正後的路標測試**通過**（第一次執行時，`Color` 經過 PropertyBlock 存取後有浮點誤差，改用容許誤差比較後通過）。其餘結果與前一輪相同：7 項中 5 項通過，失敗的 2 項仍是塔攻擊力數值問題，與本次修改無關。 |
+| 截圖檢查 | 使用你目前的材質顏色（alpha 0.5）與 Bloom 1.2，實際顏色為 (3.0, 0.24, 0.15, 0.5)，箭頭的紅色光暈恢復。 |
+| 在使用者編輯器中進入 Play Mode 的實際畫面 | **尚未驗證** |
+
 ---
 
 ## 攻擊範圍改為 Raycast 投影網格、玩家射程放大
@@ -993,13 +1023,13 @@ Assets/
 | `Scripts/Presentation/GroundRangeIndicator.cs`（新增） | 射程指示元件。`SampleGround`：沿水平圓周平均取 N 點，從擁有者高度 +20 往下 Raycast（最遠 60），取最近的有效碰撞點；沒打到時使用圓心高度。`BuildRing`：由投影點建立環帶。擁有者位置／旋轉或半徑改變、或重新顯示時才重建，所以靜止的塔只在顯示與升級時計算，玩家移動時每幀 25 條 Raycast。`SetAlert(bool)` 切換白色與紅色。 |
 | `Scripts/Presentation/PrototypeRangeCircle.cs`（刪除） | 舊的 `LineRenderer` 平面圓，已沒有任何使用者。 |
 | `Scripts/Gameplay/Towers/FixedTowerCombat.cs` | 射程圈改用 `GroundRangeIndicator`（物件名稱仍為 `Attack Range Circle`，寬度 0.4）。每幀找目標後呼叫 `SetAlert(_target != null)`：目標無效時已重新搜尋整個射程，所以「有目標」就等於「射程內有敵人」。塔被摧毀時恢復白色。 |
-| `Scripts/Gameplay/Player/PrototypePlayerAttack.cs` | `attackRange` 預設值由 3 改為 4.5；射程圈改用 `GroundRangeIndicator`（寬度 0.15）。新增 `HasEnemyInRange`：每幀以水平距離檢查 `EnemyAgent.Active` 中是否有存活敵人在射程內。 |
+| `Scripts/Gameplay/Player/PrototypePlayerAttack.cs` | `attackRange` 預設值由 3 改為 4.5（之後再改為 9，見修改紀錄）；射程圈改用 `GroundRangeIndicator`（寬度 0.15）。新增 `HasEnemyInRange`：每幀以水平距離檢查 `EnemyAgent.Active` 中是否有存活敵人在射程內。 |
 | `Scripts/Gameplay/Enemies/EnemyAgent.cs` | 新增靜態清單 `EnemyAgent.Active`（`OnEnable` 加入、`OnDisable` 移除，進入 Play Mode 時清空），讓玩家不必引用 `WaveDirector` 就能查詢敵人。 |
 | `Scripts/Presentation/PrototypeMaterialLibrary.cs` | 新增 `RangeIndicator` 角色。 |
 | `Resources/PrototypePalette/RangeIndicator.mat`（新增） | URP Unlit 不透明白色；實際顏色由 `MaterialPropertyBlock` 覆寫。 |
-| `Scenes/Level_1.unity` | `Player` 上的 `PrototypePlayerAttack.attackRange` 由 3 改為 4.5。 |
+| `Scenes/Level_1.unity` | `Player` 上的 `PrototypePlayerAttack.attackRange` 由 3 改為 4.5（之後再改為 9）。 |
 | `Tests/EditMode/Level1CombatEditModeTests.cs` | 新增 2 項：投影會落在方塊頂面與地面、略過可受傷的角色；環帶頂點數、三角形數、高度與內縮距離，以及正面朝上。 |
-| `Tests/PlayMode/Level1CombatPlayModeTests.cs` | 新增 1 項：玩家射程 4.5、25 個投影點貼近腳底、開場為白色；三座塔的射程圈半徑等於塔射程；塔鎖定敵人時轉紅；玩家移到敵人旁邊時轉紅。 |
+| `Tests/PlayMode/Level1CombatPlayModeTests.cs` | 新增 1 項：玩家射程（目前為 9）、25 個投影點貼近腳底、開場為白色；三座塔的射程圈半徑等於塔射程；塔鎖定敵人時轉紅；玩家移到敵人旁邊時轉紅。 |
 
 **Raycast 略過的碰撞體**：觸發器、擁有者自己（玩家本身、塔的基座與塔身），以及父物件上有 `IDamageable` 的物件（敵人、玩家、塔、閘門核心）。其他碰撞體都視為地面，包括建築、牆與閘門柱。
 
@@ -1015,12 +1045,12 @@ Assets/
 | `rayStartHeight`／`rayLength` | 20／60 | Raycast 起點高度與長度。 |
 | `groundMask` | Everything | 視為地面的圖層；目前專案沒有專用的地面圖層。 |
 | `idleColor`／`alertColor` | 白 (1, 1, 1)／紅 (1, 0.12, 0.08) | 範圍內沒有／有敵人時的顏色。 |
-| `PrototypePlayerAttack.attackRange` | 4.5（原本 3 × 1.5） | 玩家攻擊範圍。 |
+| `PrototypePlayerAttack.attackRange` | 9（原本 3，× 1.5 為 4.5，再 × 2 為 9） | 玩家攻擊範圍。 |
 
 ### 遊戲呈現
 
-- 玩家腳下一直有白色環帶（半徑 4.5），貼著實際地面；有敵人進入範圍時轉為紅色。
-- 靠近塔時顯示該塔的射程環帶，會沿著平台、道路與地面起伏；塔鎖定敵人時轉為紅色，沒有敵人時為白色。
+- 玩家腳下一直有白色環帶（半徑 9），貼著實際地面；有敵人進入範圍時轉為紅色。
+- 三座塔的射程環帶持續顯示（見下方修改紀錄；原本只在玩家靠近時顯示），會沿著平台、道路與地面起伏；塔鎖定敵人時轉為紅色，沒有敵人時為白色。
 - 25 個取樣點讓環帶呈現明顯的多邊形折線，而不是平滑的圓。
 
 ### 限制與待改善事項
@@ -1042,6 +1072,33 @@ Assets/
 | PlayMode 測試 | **7 項中 5 項通過**（新增 1 項，通過）。失敗的 2 項與上一節相同（`FixedTowerProfile.asset` 的攻擊力為 20，但測試寫死 10），與本次修改無關。 |
 | 截圖檢查 | 以暫時的截圖測試（已刪除）確認：玩家腳下的白色環帶貼地；三座塔射程圈在無敵人時為白色；5 號塔鎖定敵人後轉紅，同時 9 號塔仍為白色；環帶沿平台與道路起伏，並看得到上述平台側壁遮擋與爬上閘門柱的情形。 |
 | 實際操作時玩家射程圈跟隨移動的觀感、轉色是否清楚 | **尚未驗證** |
+
+### 修改紀錄
+
+**2026-11-26　塔的射程圈改為持續顯示**
+
+- 需求：只要是有攻擊範圍的物件，範圍都持續顯示（包括塔）。
+- 修改前：塔的射程圈只在玩家靠近、升級提示出現時顯示，由 `TowerUpgradePrompt` 開關。修改後：`FixedTowerCombat` 建立射程圈後就保持顯示，只有塔被摧毀時才隱藏；`TowerUpgradePrompt` 不再控制射程圈（移除 `ShowRange`）。
+- 範圍：目前有攻擊範圍顯示的物件是玩家與三座塔，玩家的射程圈原本就持續顯示。敵人只有近戰攻擊距離，Boss 有脈衝技能半徑，兩者目前都沒有範圍顯示，也沒有新增。
+- 效能：塔是靜止的，射程圈只在建立和升級時投影一次（25 條 Raycast），持續顯示不會增加每幀計算。
+- 測試：`Upgrade_PlayerNearTowerUpgradesEachPartWithEnergy` 的「離開後射程圈消失」改為「離開後射程圈仍在」。這項測試目前會因為塔攻擊力數值問題，在更前面就失敗，所以這行檢查實際上沒有執行到。`RangeIndicators_ProjectToGroundAndTurnRedWhenEnemyInRange` 改為檢查開場時三座塔的射程圈已經顯示。
+
+**2026-11-26　玩家攻擊距離再提升 1 倍**
+
+- 修改前 4.5，修改後 9。修改的地方：場景中 `PrototypePlayerAttack.attackRange`、程式預設值、PlayMode 測試的期望值。玩家移到敵人旁的測試距離也由 2 改為 4。
+- 瞄準用的 Raycast 長度為 100，不會限制射程 9。
+
+**驗證（以上兩項加上刪除閘門標籤）**
+
+Unity 編輯器開著，所以把 `Assets`、`Packages`、`ProjectSettings` 複製到暫存資料夾，在副本上以批次模式執行。暫時的截圖測試只存在於副本中，副本已刪除。
+
+| 項目 | 結果 |
+| --- | --- |
+| 編譯 | 沒有錯誤或警告。 |
+| EditMode 測試 | **21 項全數通過**。 |
+| PlayMode 測試 | **7 項中 5 項通過**（不含副本中的暫時截圖測試）。失敗的 2 項仍是塔攻擊力數值問題（`FixedTowerProfile.asset` 為 20，測試寫死 10），與本次修改無關。 |
+| 截圖檢查 | 開場俯視畫面中，三座塔的白色射程圈在玩家不在附近時就已顯示；閘門前已沒有文字標籤；玩家射程圈半徑明顯放大為 9。 |
+| 在使用者編輯器中重新載入場景後的狀態、實際遊玩手感 | **尚未驗證** |
 
 ---
 

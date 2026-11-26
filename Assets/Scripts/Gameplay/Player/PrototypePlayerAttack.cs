@@ -13,8 +13,8 @@ namespace CyberWizard.Gameplay.Player
         [SerializeField] private Camera gameplayCamera;
         [SerializeField, Min(0f)] private float damage = 10f;
         [SerializeField, Min(0.05f)] private float attackInterval = 0.5f;
-        [SerializeField, Min(0.1f), Tooltip("攻擊範圍（水平距離）。2026-11-26 由 3 放大 1.5 倍為 4.5。")]
-        private float attackRange = 4.5f;
+        [SerializeField, Min(0.1f), Tooltip("攻擊範圍（水平距離）。2026-11-26 由 3 放大 1.5 倍為 4.5，再提升 1 倍為 9。")]
+        private float attackRange = 9f;
 
         private float _cooldownRemaining;
         private GroundRangeIndicator _rangeIndicator;

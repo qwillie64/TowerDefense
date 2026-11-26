@@ -7,7 +7,7 @@ namespace CyberWizard.Presentation
     /// <summary>
     /// 玩家靠近固定防禦塔時，在塔旁邊（攝影機視角的左側或右側）顯示的 3D 升級提示：
     /// 列出三個部位的目前等級、升級後數值與花費，能量不足的花費以紅色顯示；
-    /// 同時顯示該塔的射程圈。提示面板永遠面向攝影機。
+    /// 提示面板永遠面向攝影機（塔的射程圈由 FixedTowerCombat 持續顯示，與本提示無關）。
     /// 文字使用內建 TextMesh 與 LegacyRuntime 字型（不需要 TextMeshPro）。
     /// </summary>
     [DisallowMultipleComponent]
@@ -71,8 +71,6 @@ namespace CyberWizard.Presentation
             {
                 interactor.UpgradeAttempted -= HandleUpgradeAttempted;
             }
-
-            ShowRange(_shownTower, false);
         }
 
         private void LateUpdate()
@@ -80,9 +78,7 @@ namespace CyberWizard.Presentation
             var tower = interactor != null ? interactor.CurrentTower : null;
             if (tower != _shownTower)
             {
-                ShowRange(_shownTower, false);
                 _shownTower = tower;
-                ShowRange(_shownTower, true);
             }
 
             if (tower == null)
@@ -307,14 +303,6 @@ namespace CyberWizard.Presentation
             if (_panel != null && _panel.gameObject.activeSelf != visible)
             {
                 _panel.gameObject.SetActive(visible);
-            }
-        }
-
-        private static void ShowRange(FixedTowerCombat tower, bool visible)
-        {
-            if (tower != null)
-            {
-                tower.SetRangeVisible(visible);
             }
         }
     }

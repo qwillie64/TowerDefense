@@ -62,9 +62,14 @@ namespace CyberWizard.Tests
             Assert.That(strips.Length, Is.EqualTo(2));
             foreach (var strip in strips)
             {
-                var color = strip.sharedMaterial.GetColor("_BaseColor");
-                Assert.That(color.a, Is.EqualTo(0.6f).Within(0.01f), "箭頭應為 alpha 0.6。");
-                Assert.That(color.r, Is.GreaterThan(0.9f));
+                // 實際顏色來自 MaterialPropertyBlock：材質顏色 × 發光強度（HDR），透明度沿用材質。
+                var block = new MaterialPropertyBlock();
+                strip.GetPropertyBlock(block);
+                var color = block.GetColor("_BaseColor");
+                var expected = preview.GlowColor;
+                Assert.That(((Vector4)color - (Vector4)expected).magnitude, Is.LessThan(0.001f), $"實際 {color}，預期 {expected}。");
+                Assert.That(color.r, Is.GreaterThan(1f), "箭頭紅色分量應超過 Bloom 門檻 1 才會發光。");
+                Assert.That(color.a, Is.EqualTo(strip.sharedMaterial.GetColor("_BaseColor").a).Within(0.001f));
                 Assert.That(strip.GetComponent<MeshFilter>().sharedMesh.vertexCount, Is.GreaterThan(100));
             }
 
@@ -231,7 +236,7 @@ namespace CyberWizard.Tests
             yield return null;
             Assert.That(interactor.CurrentTower, Is.Null);
             Assert.That(prompt.IsVisible, Is.False);
-            Assert.That(tower.transform.Find("Attack Range Circle").gameObject.activeSelf, Is.False);
+            Assert.That(tower.transform.Find("Attack Range Circle").gameObject.activeSelf, Is.True, "射程圈持續顯示，玩家離開後仍在。");
         }
 
         [UnityTest]
@@ -295,8 +300,8 @@ namespace CyberWizard.Tests
             var playerAttack = Object.FindObjectOfType<PrototypePlayerAttack>();
             var player = Object.FindObjectOfType<PrototypePlayerController>();
             var playerIndicator = player.transform.Find("Player Attack Range Circle").GetComponent<GroundRangeIndicator>();
-            Assert.That(playerAttack.AttackRange, Is.EqualTo(4.5f).Within(0.001f), "玩家射程 3 × 1.5。");
-            Assert.That(playerIndicator.Radius, Is.EqualTo(4.5f).Within(0.001f));
+            Assert.That(playerAttack.AttackRange, Is.EqualTo(9f).Within(0.001f), "玩家射程 3 × 1.5 × 2。");
+            Assert.That(playerIndicator.Radius, Is.EqualTo(9f).Within(0.001f));
             Assert.That(playerIndicator.SampleCount, Is.EqualTo(25));
             Assert.That(playerIndicator.GroundPoints.Count, Is.EqualTo(25));
             Assert.That(playerIndicator.IsAlert, Is.False, "開場沒有敵人，射程圈為白色。");
@@ -309,12 +314,14 @@ namespace CyberWizard.Tests
                 Assert.That(Mathf.Abs(point.y - feet), Is.LessThan(1f), $"投影點 {point} 應貼近地面（腳底 {feet:0.00}）。");
             }
 
+            // 塔的射程圈不需要玩家靠近，開場就持續顯示。
             var towers = Object.FindObjectsOfType<FixedTowerCombat>();
             var indicators = new Dictionary<FixedTowerCombat, GroundRangeIndicator>();
             foreach (var tower in towers)
             {
-                tower.SetRangeVisible(true);
-                indicators[tower] = tower.transform.Find("Attack Range Circle").GetComponent<GroundRangeIndicator>();
+                var circle = tower.transform.Find("Attack Range Circle");
+                Assert.That(circle.gameObject.activeInHierarchy, Is.True, $"{tower.name} 的射程圈應持續顯示。");
+                indicators[tower] = circle.GetComponent<GroundRangeIndicator>();
             }
 
             yield return null;
@@ -336,7 +343,7 @@ namespace CyberWizard.Tests
             // 把玩家移到敵人旁邊：玩家射程圈轉為紅色。
             Time.timeScale = 1f;
             var enemy = EnemyAgent.Active.First(agent => agent != null && agent.IsAlive);
-            Teleport(player, enemy.transform.position + Vector3.right * 2f + Vector3.up);
+            Teleport(player, enemy.transform.position + Vector3.right * 4f + Vector3.up);
             yield return null;
             yield return null;
             Assert.That(playerAttack.HasEnemyInRange, Is.True);

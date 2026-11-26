@@ -12,7 +12,9 @@ namespace CyberWizard.Presentation
     /// 顯示時機：下一波尚未開始，且目前沒有梯隊正在生成（第一波在關卡開始前就顯示；
     /// 之後的波次在上一波全部生成完畢後顯示）；該波開始生成時隱藏。排程中止（失敗）後全部隱藏。
     /// 同一條路線只建立一個網格，多個梯隊走同一條路線時共用；只有顯示中的路線每幀更新網格。
-    /// 發光效果來自 HDR 箭頭材質加上場景中的 Bloom 後製（Volume）。
+    /// 發光效果：執行時把材質的 Base Color（色相與透明度）乘上 <see cref="glowIntensity"/> 成為 HDR 顏色，
+    /// 再由場景中的 Bloom 後製（Volume）擴散成光暈。URP Unlit 的 Base Color 拾色器不是 HDR，
+    /// 在 Inspector 改顏色會被截成 0～1，所以亮度另外由本元件控制。
     /// </summary>
     [DisallowMultipleComponent]
     public sealed class WavePathPreview : MonoBehaviour
@@ -26,8 +28,11 @@ namespace CyberWizard.Presentation
 
         [SerializeField] private WaveDirector waveDirector;
         [SerializeField] private EnemySpawner enemySpawner;
-        [SerializeField, Tooltip("箭頭材質（半透明 HDR 紅色；亮度大於 1 的部分會被 Bloom 擴散成光暈）。")]
+        [SerializeField, Tooltip("箭頭材質（URP Unlit 半透明）。色相與透明度取自其 Base Color。")]
         private Material arrowMaterial;
+
+        [SerializeField, Min(0f), Tooltip("發光強度：Base Color 的 RGB 乘上此值。結果大於 Bloom 門檻（目前 1）的部分才會發光；1 表示不加亮。暫定值。")]
+        private float glowIntensity = 4f;
 
         [Header("箭頭外形（暫定值）")]
         [SerializeField, Min(0.5f)] private float spacing = 3.5f;
@@ -44,6 +49,8 @@ namespace CyberWizard.Presentation
         private readonly List<Vector3> _vertices = new List<Vector3>();
         private readonly List<Vector3> _normals = new List<Vector3>();
         private readonly List<int> _triangles = new List<int>();
+        private static readonly int BaseColorId = Shader.PropertyToID("_BaseColor");
+        private MaterialPropertyBlock _propertyBlock;
         private string _shownWaveId;
         private bool _initialized;
 
@@ -52,6 +59,20 @@ namespace CyberWizard.Presentation
 
         /// <summary>目前的流動偏移量（單位），以箭頭間距為週期循環。</summary>
         public float FlowOffset => flowSpeed > 0f ? Mathf.Repeat(Time.time * flowSpeed, spacing) : 0f;
+
+        /// <summary>箭頭實際使用的顏色：材質 Base Color 的 RGB 乘上發光強度，透明度不變。</summary>
+        public Color GlowColor
+        {
+            get
+            {
+                var baseColor = arrowMaterial != null ? arrowMaterial.GetColor(BaseColorId) : Color.red;
+                return new Color(
+                    baseColor.r * glowIntensity,
+                    baseColor.g * glowIntensity,
+                    baseColor.b * glowIntensity,
+                    baseColor.a);
+            }
+        }
 
         /// <summary>指定路線（出生點 + 路線 ID）的箭頭目前是否顯示。</summary>
         public bool IsRouteVisible(string spawnPointId, string pathId)
@@ -181,6 +202,9 @@ namespace CyberWizard.Presentation
                 strip.GameObject.AddComponent<MeshFilter>().sharedMesh = strip.Mesh;
                 var meshRenderer = strip.GameObject.AddComponent<MeshRenderer>();
                 meshRenderer.sharedMaterial = arrowMaterial;
+                _propertyBlock ??= new MaterialPropertyBlock();
+                _propertyBlock.SetColor(BaseColorId, GlowColor);
+                meshRenderer.SetPropertyBlock(_propertyBlock);
                 meshRenderer.shadowCastingMode = ShadowCastingMode.Off;
                 meshRenderer.receiveShadows = false;
                 strip.GameObject.SetActive(false);
