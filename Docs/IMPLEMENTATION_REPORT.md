@@ -459,7 +459,7 @@ Level1_Systems               # EnemySpawner + WaveDirector + GateDefenseFlow
 - **路徑點與地形分開**：路徑點的高度是依目前的地形坡度算出來的。修改 `SlopedTerrain` 的角度或移動道路後，需要手動調整路徑點。
 - **不走重力的敵人**：開啟 `followWaypointHeight` 的敵人不使用 `GroundGravity`，高度完全由路徑點決定。若路徑點不在地面上，敵人會懸空或陷入地面。
 - **閘門借用 `BaseCore`**：閘門目標使用既有的 `BaseCore` 元件，它的陣營是 Player、名稱含「主堡」語意。目前只有本關使用，沒有另建專用類別。
-- **UI 有限**：2026-11-26 起有原型 HUD 顯示勝敗訊息（見第三節），但仍沒有重新開始或暫停。
+- **UI 有限**：2026-11-26 起有原型 HUD 顯示勝敗訊息（見第三節）。2026-11-27 起勝敗改由結算面板顯示，並可重新挑戰或回到選關（見「遊戲流程：初始畫面、選關與結算面板」）；同日加入 Esc 暫停面板（見「選關返回按鈕與遊玩中暫停面板」）。
 - **波次時間是絕對時間**：不會等上一波清除，與既有關卡規則相同。
 - **建置限制**：`Level_1` 仍未加入 Build Settings；PlayMode 測試透過編輯器 API 依路徑載入場景，只能在編輯器中執行。
 - **場景組裝**：場景是用一次性的 Editor 腳本在專案副本中組裝的。該腳本沒有放進專案，後續修改請直接編輯場景。
@@ -566,7 +566,7 @@ Level_1 PlayMode 測試確認了以下事項（2026-11-26 起，此測試一開�
 | `Scripts/Presentation/WavePathPreview.cs` | 依 `WaveDirector` 的下一波資料顯示／隱藏各路線的箭頭；同一條路線只建立一次網格。 |
 | `Scripts/Presentation/TowerUpgradePrompt.cs` | 3D 升級提示面板：顯示塔號、血量、能量，以及三部位的目前等級、升級後數值與花費；同時顯示該塔射程圈（2026-11-26 起射程圈改為持續顯示，不再由提示面板控制）。內容只在狀態改變時重建。 |
 | `Scripts/Presentation/MinimapView.cs` | 把俯視攝影機設成右上角正方形（邊長為畫面高度的 32%），畫外框與玩家（青色）、敵人（紅色）標記點。 |
-| `Scripts/Presentation/GateDefenseHud.cs` | 原型 HUD：準星、能量、玩家與閘門血量、波次與下一波倒數、可升級的塔、操作說明、勝敗訊息。只讀取狀態。 |
+| `Scripts/Presentation/GateDefenseHud.cs` | 原型 HUD：準星、能量、玩家與閘門血量、波次與下一波倒數、可升級的塔、操作說明、勝敗訊息（2026-11-27 起勝敗訊息移到 `LevelResultPanel`，HUD 只保留關卡無法開始的錯誤）。只讀取狀態。 |
 
 **修改既有檔案**
 
@@ -1383,7 +1383,7 @@ Unity 編輯器開著，所以把 `Assets`、`Packages`、`ProjectSettings` 複�
 | `Assets/Scripts/Presentation/GateShatterOnDestroyed.cs` | 碎片剛體設為 `RigidbodyInterpolation.Interpolate`。 |
 
 - **物理步長（`Time.fixedDeltaTime`）刻意不縮小**：第一版把步長同比例縮為 0.005，結果閘門碎片的物理結果改變（碎片平均位置往北（關外）偏約 1.2，`Level1_MinionsClimbToGateBreakItAndThenEverythingStops` 的「碎片往南推」檢查失敗）；恢復原步長後連續兩次通過。因此保留原步長 0.02（慢動作中約每 0.08 秒真實時間一步），改以剛體插值維持畫面平滑。
-- 結束後 `cameraFollow` 維持啟用，游標保持鎖定；HUD 照常顯示勝敗訊息。
+- 結束後 `cameraFollow` 維持啟用，游標保持鎖定；HUD 照常顯示勝敗訊息。（2026-11-27 修改：判定後 2 秒真實時間出現結算面板，此時才關閉滑鼠視角、釋放游標並停用玩家操作；HUD 不再顯示勝敗訊息，見「遊戲流程：初始畫面、選關與結算面板」。）
 
 ### 可調整參數
 
@@ -1399,7 +1399,7 @@ Unity 編輯器開著，所以把 `Assets`、`Packages`、`ProjectSettings` 複�
 
 ### 限制與待改善事項
 
-- 慢動作會一直持續到離開場景，沒有回到正常速度、重新開始或返回選單的流程（目前專案也沒有這些流程）。
+- 慢動作會一直持續到離開場景。2026-11-27 起可從結算面板「再次挑戰」或「確認」離開場景，`OnDestroy` 會把時間倍率還原為 1。
 - 結束後玩家仍可攻擊、升級塔（升級會花費能量），這些操作不會改變已判定的勝敗結果。
 - 失敗後塔仍會攻擊停住的敵人；排程已停止，擊殺後不會轉為勝利。
 - 慢動作期間物理步長仍是 0.02 遊戲秒；除了閘門碎片外，若之後加入其他剛體，需要一併開啟插值。
@@ -1423,3 +1423,167 @@ Unity 編輯器開著，所以把 `Assets`、`Packages`、`ProjectSettings` 複�
 | EditMode 測試 | **28 項全數通過**（新增 7 項：`RoadMeshBuilderTests` 4 項、`LevelScheduleLoaderEditModeTests` 3 項）。 |
 | PlayMode 測試 | **10 項中 8 項通過**（新增 3 項，皆通過）。失敗的 2 項與前幾節相同：`Towers_AimFireRivetsKillEnemiesAndGrantEnergy`、`Upgrade_PlayerNearTowerUpgradesEachPartWithEnergy`，原因是 `FixedTowerProfile.asset` 的攻擊力為 20，但測試寫死 10，與本次修改無關。 |
 | 暫時檔案 | 截圖工具、場景修改腳本、WebGL 編譯檢查腳本與截圖測試都已刪除（含 `.meta`）。 |
+
+---
+
+## 遊戲流程：初始畫面、選關與結算面板
+
+- 紀錄日期：2026-11-27（分支 `add_game_flow`）
+- 狀態：**已完成**（最小可用流程）。第 2、3 關格子**尚未實作**（按鈕停用，不執行任何動作）。
+
+### 功能目的
+
+把原本只有 `Level_1` 的原型串成完整流程：初始畫面（開始／離開）→ 選關（三個關卡格子，第 1 關進入 `Level_1`）→ 遊玩 → 結算面板（勝利或失敗、再次挑戰、確認回選關）。
+
+### 使用技術
+
+- uGUI（`com.unity.ugui` 1.0.0，專案原本就有的內建套件）：`Canvas`（Screen Space Overlay）、`CanvasScaler`（Scale With Screen Size，參考解析度 1920 × 1080、寬高各半）、`Button`、`Image`、`Text`、`Horizontal/VerticalLayoutGroup`、`EventSystem` + `StandaloneInputModule`（專案使用舊版 Input Manager）。
+- 文字使用內建字型 `LegacyRuntime.ttf`，未使用 TextMeshPro（與既有場景一致，避免匯入 TMP Essentials）。按鈕與面板使用內建 UI Sprite（`UISprite`、`Background`）。
+- `SceneManager.LoadScene`（依場景名稱）、`Application.CanStreamedLevelBeLoaded` 檢查場景是否已加入 Build Settings。
+- `WaitForSecondsRealtime`：結算面板延遲以真實時間計算，不受結束慢動作（`Time.timeScale` = 0.25）影響。
+- `CyberWizard.Runtime` 組件新增對 `UnityEngine.UI` 的參考；`CyberWizard.PlayModeTests` 也加入 `UnityEngine.UI`。**沒有新增外部套件。**
+
+### 實作方式
+
+**新增場景**（Build Settings 順序：0 `MainMenu`、1 `LevelSelect`、2 `Level_1`）
+
+| 場景 | 內容 |
+| --- | --- |
+| `Assets/Scenes/MainMenu.unity` | `Main Camera`（純色背景）、`EventSystem`、`Main Menu Canvas`：標題「CyberWizard TD」，畫面中央下方垂直排列「開始」「離開」兩個按鈕；`MainMenuController` 掛在 Canvas 上。 |
+| `Assets/Scenes/LevelSelect.unity` | `Main Camera`、`EventSystem`、`Level Select Canvas`：畫面中央的 `Level Select Panel`（標題「選擇關卡」與三個並排的關卡格子按鈕）；`LevelSelectController` 掛在 Canvas 上。 |
+
+**`Level_1` 新增物件**：`EventSystem`，以及 `Result Canvas`（sortingOrder 100，掛 `LevelResultPanel`）。其下的 `Result Panel`（全螢幕半透明黑底，場景中預設停用）內含 `Window`：標題 `Title`、說明 `Detail`、按鈕列「再次挑戰」「確認」。既有物件沒有修改。
+
+場景與 UI 物件以一次性的編輯器腳本在批次模式中建立，之後腳本已刪除；之後直接在場景中編輯即可。
+
+**新增腳本**
+
+| 檔案 | 責任 |
+| --- | --- |
+| `Assets/Scripts/Infrastructure/SceneLoading.cs` | 靜態工具。`TryLoad(sceneName)`：名稱空白或未加入 Build Settings 時記錄錯誤並回傳 false，否則以 Single 模式載入。`TryReloadActive()`：以目前場景**名稱**重新載入（以編輯器 API 依路徑開啟的場景 `buildIndex` 為 -1，所以不用 index）。 |
+| `Assets/Scripts/Presentation/Menus/MainMenuController.cs` | 在 `OnEnable` 綁定按鈕：「開始」→ `TryLoad(levelSelectSceneName)`；「離開」→ `Application.Quit()`（編輯器中改為停止 Play Mode）。 |
+| `Assets/Scripts/Presentation/Menus/LevelSelectController.cs` | 保存 `LevelEntry[]`（按鈕 + 場景名稱）。場景名稱空白的格子設為 `interactable = false` 且不綁定任何動作；有名稱的格子按下後載入該場景。 |
+| `Assets/Scripts/Presentation/LevelResultPanel.cs` | 訂閱 `GateDefenseFlow.PhaseChanged`。進入 `Ended`（勝利）或 `Defeat`（失敗）後，等待 `showDelaySeconds` 真實秒數，再設定標題文字與顏色、說明文字（失敗時使用 `GateDefenseFlow.FailureReason`），呼叫 `PrototypeCameraFollow.SetGameplayActive(false)`（關閉滑鼠視角、釋放游標）、把 `PrototypePlayerController.InputEnabled` 設為 false，最後啟用面板。「再次挑戰」→ `TryReloadActive()`；「確認」→ `TryLoad(levelSelectSceneName)`。必要參考缺少時記錄錯誤並停用自身。 |
+
+**修改既有腳本**
+
+| 檔案 | 修改前 → 修改後 |
+| --- | --- |
+| `Assets/Scripts/Presentation/GateDefenseHud.cs` | 修改前：畫面中央以 IMGUI 顯示「勝利／失敗」橫幅。修改後：勝敗改由結算面板顯示（IMGUI 永遠畫在 uGUI 之上，保留會與面板重疊）；只保留「關卡無法開始」的錯誤訊息。 |
+
+時間倍率：離開 `Level_1` 時 `GateDefenseFlow.OnDestroy` 既有的還原邏輯會把 `Time.timeScale` 設回 1，選單與重新載入的關卡都以正常速度執行（已由測試確認）。
+
+### 可調整參數
+
+| 物件／元件 | 參數 | 用途 |
+| --- | --- | --- |
+| `MainMenu` / `MainMenuController` | `levelSelectSceneName` | 「開始」載入的場景，預設 `LevelSelect`。 |
+| `LevelSelect` / `LevelSelectController` | `levels[i].button`、`levels[i].sceneName` | 每個關卡格子對應的場景；目前第 1 格為 `Level_1`，第 2、3 格留空（尚未開放）。新增關卡時填入場景名稱並加入 Build Settings 即可。 |
+| `Level_1` / `LevelResultPanel` | `showDelaySeconds` | 勝敗判定後到出現面板的真實秒數，**暫定值 2**。 |
+| `Level_1` / `LevelResultPanel` | `levelSelectSceneName` | 「確認」載入的場景，預設 `LevelSelect`。 |
+| `Level_1` / `LevelResultPanel` | `victoryTitle`、`defeatTitle`、`victoryDetail`、`victoryColor`、`defeatColor` | 面板文字與標題顏色（預設「勝利」綠色、「失敗」紅色，沿用原 HUD 的顏色）。 |
+
+### 遊戲呈現
+
+- 啟動後看到深色背景、黃銅色標題「CyberWizard TD」，畫面中央下方由上到下為「開始」「離開」。
+- 「開始」進入選關畫面：中央面板顯示「選擇關卡」與三個方框「第 1 關 鏽巷」「第 2 關 尚未開放」「第 3 關 尚未開放」；第 2、3 關為灰色停用狀態，點擊沒有反應。
+- 點「第 1 關」進入 `Level_1`，遊玩方式與之前相同。
+- 閘門被打破或清除所有波次後，先播放 0.25 倍速慢動作約 2 秒（真實時間），期間仍可操作；接著畫面變暗並出現結算視窗，標題「勝利」（綠）或「失敗」（紅），下方說明「所有波次已清除」或「黃銅閘門已被打破」。此時游標被釋放、視角與玩家操作停止。
+- 「再次挑戰」重新載入 `Level_1`；「確認」回到選關畫面。
+
+### 限制與待改善事項
+
+- ~~選關畫面沒有「返回初始畫面」按鈕；遊玩中沒有暫停選單~~：2026-11-27 已補上，見下一節「選關返回按鈕與遊玩中暫停面板」。
+- 第 2、3 關沒有場景，格子只是停用的佔位按鈕。
+- 沒有關卡解鎖或進度存檔；第 1 關永遠開放。
+- 場景切換為同步 `LoadScene`，沒有讀取畫面或轉場效果；`Level_1` 載入時間較長時畫面會短暫停住。
+- 選單畫面為基本色塊與內建字型，尚未有美術設計；中文字形依賴作業系統字型後援（與既有 `TextMesh` 標籤相同），在非 Windows 平台的顯示**尚未驗證**。
+- 結算面板出現後 HUD（左上角狀態）仍會顯示；`Level_1` 若從編輯器直接開啟遊玩，「確認」仍會前往 `LevelSelect`。
+- 慢動作延遲期間（約 2 秒）玩家仍可攻擊或升級塔，與先前的設計相同。
+- 「離開」在建置版本中呼叫 `Application.Quit()`，WebGL 平台上此呼叫沒有作用。
+- 實際以滑鼠點擊按鈕、鍵盤導覽與不同解析度下的版面**尚未驗證**（批次模式無法實際操作與檢視畫面）。
+
+### 驗證方式
+
+| 項目 | 結果 |
+| --- | --- |
+| 編譯（Unity 2022.3.62f3 批次模式） | 通過，沒有編譯錯誤。 |
+| PlayMode：`GameFlowPlayModeTests.MainMenu_StartButtonLoadsLevelSelect`（新增） | 通過：「開始」在「離開」上方；觸發「開始」後使用中場景變為 `LevelSelect`。 |
+| PlayMode：`GameFlowPlayModeTests.LevelSelect_FirstSlotLoadsLevel1AndOtherSlotsAreLocked`（新增） | 通過：共 3 個格子，第 2、3 格不可互動；觸發第 1 格後載入 `Level_1`，流程進入 `Wave`。 |
+| PlayMode：`GameFlowPlayModeTests.Level1_VictoryShowsResultPanelAndConfirmReturnsToLevelSelect`（新增） | 通過：以 20 倍速擊殺所有敵人後判定勝利，判定瞬間面板尚未出現；延遲後面板顯示「勝利」，滑鼠視角關閉、游標為 `None`、玩家操作停用；觸發「確認」後回到 `LevelSelect`，`Time.timeScale` 為 1。 |
+| PlayMode：`GameFlowPlayModeTests.Level1_DefeatShowsResultPanelAndRetryReloadsLevel`（新增） | 通過：直接打破閘門後面板顯示「失敗」並釋放操作；觸發「再次挑戰」後重新載入 `Level_1`（舊流程物件已銷毀、新流程為 `Wave`、面板隱藏、`Time.timeScale` 為 1）。第一次執行時失敗（原本用 `buildIndex` 重新載入，編輯器依路徑載入的場景為 -1），改為依名稱載入後通過。 |
+| 既有測試 | EditMode **28 項全數通過**；PlayMode 既有 10 項中 8 項通過，失敗的 2 項（`Towers_AimFireRivetsKillEnemiesAndGrantEnergy`、`Upgrade_PlayerNearTowerUpgradesEachPartWithEnergy`）與上一輪相同，原因是測試寫死攻擊力 10，與本次修改無關。`Victory_SlowsGameTimeAndKeepsPlayerControl` 仍通過（面板延遲出現，判定瞬間玩家操作仍啟用）。 |
+| 滑鼠實際點擊、畫面版面、建置版本的「離開」 | **尚未驗證** |
+
+註：測試按鈕以 `Button.onClick.Invoke()` 觸發，未模擬滑鼠點擊與 `EventSystem` 射線檢測。
+
+---
+
+## 選關返回按鈕與遊玩中暫停面板
+
+- 紀錄日期：2026-11-27（分支 `add_game_flow`）
+- 狀態：**已完成**。
+
+### 功能目的
+
+- 選關畫面左上角加入箭頭按鈕，讓玩家回到初始畫面。
+- 遊玩中按 Esc 暫停遊戲並顯示暫停面板，可「繼續」「重新開始」「中離」。
+
+### 使用技術
+
+- uGUI（與上一節相同）；返回按鈕的箭頭是內建字型的「←」字元（U+2190），不是圖片。
+- `Time.timeScale = 0` 暫停；uGUI 的 `EventSystem` 與按鈕顏色過渡使用不受時間倍率影響的時間，暫停中仍可操作。
+- 舊版 Input Manager：`Input.GetKeyDown(KeyCode.Escape)`。
+- 沿用既有但未使用過的 `GamePhase.Paused`。**沒有新增外部套件。**
+
+### 實作方式
+
+| 檔案 | 修改 |
+| --- | --- |
+| `Assets/Scripts/Gameplay/GameFlow/GateDefenseFlow.cs` | 新增 `TryPause()`：只在 `Wave` 時有效，記錄目前 `Time.timeScale` 後設為 0，進入 `Paused`。新增 `Resume()`：只在 `Paused` 時有效，還原暫停前的時間倍率並回到 `Wave`。`OnDestroy` 的還原條件從「只有結束慢動作」擴充為「結束慢動作或暫停中」，所以從暫停面板重新開始或中離時時間倍率會回到 1。 |
+| `Assets/Scripts/Presentation/LevelPausePanel.cs`（新增） | 每幀檢查 `toggleKey`（預設 Esc），呼叫 `TogglePause()`：`Paused` 時恢復，否則嘗試 `flow.TryPause()`，成功才顯示面板並停用操作（`PrototypeCameraFollow.SetGameplayActive(false)` 釋放游標、`PrototypePlayerController.InputEnabled = false`）。「繼續」→ `flow.Resume()`，隱藏面板並恢復操作；「重新開始」→ `SceneLoading.TryReloadActive()`；「中離」→ `SceneLoading.TryLoad(quitSceneName)`。必要參考缺少時記錄錯誤並停用自身。 |
+| `Assets/Scripts/Presentation/Menus/LevelSelectController.cs` | 新增 `backButton` 與 `mainMenuSceneName`（預設 `MainMenu`），按下載入初始畫面。 |
+| `Assets/Scripts/Presentation/GateDefenseHud.cs` | 「下一波倒數」在 `Paused` 時也顯示（修改前只在 `Wave` 顯示，暫停時會消失）。 |
+
+**場景修改**（用一次性編輯器腳本建立，腳本已刪除）
+
+- `LevelSelect.unity`：`Level Select Canvas` 底下新增 `Back Button`（錨點左上角，距邊緣 40，120 × 100，文字「←」）。
+- `Level_1.unity`：新增 `Pause Canvas`（sortingOrder 90，低於結算面板的 100），掛 `LevelPausePanel`；其下的 `Pause Panel`（全螢幕半透明黑底，預設停用）內含 `Window`：標題「暫停」與垂直排列的「繼續」「重新開始」「中離」。
+
+### 可調整參數
+
+| 物件／元件 | 參數 | 用途 |
+| --- | --- | --- |
+| `LevelSelect` / `LevelSelectController` | `mainMenuSceneName` | 返回按鈕載入的場景，預設 `MainMenu`。 |
+| `Level_1` / `LevelPausePanel` | `toggleKey` | 切換暫停的按鍵，預設 `Escape`。 |
+| `Level_1` / `LevelPausePanel` | `quitSceneName` | 「中離」載入的場景，**暫定 `LevelSelect`**（與結算面板「確認」相同）；若要回到初始畫面改為 `MainMenu`。 |
+
+### 遊戲呈現
+
+- 選關畫面左上角有「←」按鈕，按下回到初始畫面。
+- 遊玩中按 Esc：遊戲完全靜止（敵人、塔、波次倒數、粒子都停住），畫面變暗並出現「暫停」視窗，游標被釋放。
+- 「繼續」或再按一次 Esc：面板關閉，游標重新鎖定，以暫停前的速度繼續。
+- 「重新開始」：重新載入 `Level_1`。「中離」：回到選關畫面。
+- 已分出勝負（包含結束慢動作的 2 秒與結算面板）後按 Esc 不會有反應。
+
+### 限制與待改善事項
+
+- 暫停只在 `Wave` 狀態有效；`Ready`（目前 `startOnPlay` 開啟，會立刻進入 `Wave`）與 `Starting`（WebGL 讀取波次資料中）時按 Esc 不會暫停。
+- 暫停中若閘門被打破或最後一個敵人死亡，`GateDefenseFlow` 只在 `Wave` 時處理這些事件，結果會被忽略。目前 `timeScale` 為 0 時敵人、塔與投射物都不會移動，實際上不會發生，但之後若加入不受時間倍率影響的傷害來源需要處理。
+- 在 Unity 編輯器的 Game 視窗中，按 Esc 本身也會讓編輯器釋放游標；繼續後若游標沒有重新鎖定，需點一下 Game 視窗（建置版本不受影響）。
+- 「中離」沒有確認對話框，按下立即離開，關卡進度不保留。
+- 暫停面板沒有設定選項（音量、靈敏度等）。
+- 實際按 Esc、滑鼠點擊按鈕、版面與「←」字元的顯示**尚未驗證**（批次模式無法實際操作與檢視畫面；測試直接呼叫 `TogglePause()` 與 `onClick.Invoke()`）。
+
+### 驗證方式
+
+| 項目 | 結果 |
+| --- | --- |
+| 編譯（Unity 2022.3.62f3 批次模式） | 通過。 |
+| PlayMode：`LevelSelect_BackButtonAtTopLeftReturnsToMainMenu`（新增） | 通過：返回按鈕錨定在左上角；觸發後回到 `MainMenu`。 |
+| PlayMode：`Level1_PauseFreezesTimeAndResumeRestoresControl`（新增） | 通過：暫停後 `Paused`、`timeScale` 為 0、面板顯示、滑鼠視角關閉、游標 `None`、玩家操作停用，10 幀內 `WaveDirector.ElapsedTime` 沒有前進；「繼續」後回到 `Wave`、`timeScale` 為 1、面板隱藏、視角與操作恢復；再呼叫兩次 `TogglePause()` 可暫停與恢復。第一次執行時另外檢查繼續後游標為 `Locked` 而失敗：批次模式沒有取得焦點的視窗，Unity 不會鎖定游標，因此移除這項檢查，只檢查 `GameplayActive`。 |
+| PlayMode：`Level1_PauseRestartReloadsLevelAtNormalSpeed`（新增） | 通過：暫停中「重新開始」後重新載入 `Level_1`，新流程為 `Wave`、暫停面板隱藏、`timeScale` 為 1。 |
+| PlayMode：`Level1_PauseQuitReturnsToLevelSelectAtNormalSpeed`（新增） | 通過：暫停中「中離」後回到 `LevelSelect`，`timeScale` 為 1。 |
+| PlayMode：`Level1_DefeatShowsResultPanelAndRetryReloadsLevel`（擴充） | 通過：失敗後呼叫 `TogglePause()` 不會進入暫停，也不會顯示暫停面板。 |
+| 全部測試 | EditMode **28 項全數通過**。PlayMode 共 18 項：`GameFlowPlayModeTests` 8 項全數通過（修正游標檢查後單獨重跑）；其餘 10 項中 8 項通過，失敗的 2 項是之前就已失敗的 `Towers_AimFireRivetsKillEnemiesAndGrantEnergy`、`Upgrade_PlayerNearTowerUpgradesEachPartWithEnergy`（測試寫死攻擊力 10），與本次修改無關。 |
+| 實際按鍵與滑鼠操作、畫面版面 | **尚未驗證** |
