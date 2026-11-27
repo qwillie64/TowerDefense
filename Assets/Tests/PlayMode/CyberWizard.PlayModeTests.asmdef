@@ -2,7 +2,8 @@
     "name": "CyberWizard.PlayModeTests",
     "rootNamespace": "CyberWizard.Tests",
     "references": [
-        "CyberWizard.Runtime"
+        "CyberWizard.Runtime",
+        "UnityEngine.UI"
     ],
     "includePlatforms": [],
     "excludePlatforms": [],

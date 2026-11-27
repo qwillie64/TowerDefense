@@ -10,7 +10,8 @@ namespace CyberWizard.Presentation
 {
     /// <summary>
     /// 閘門防守關卡的簡易 HUD（IMGUI，原型用）：準星、能量、玩家與閘門血量、波次倒數、
-    /// 操作說明，以及勝敗訊息。只讀取其他系統的狀態，不修改任何遊戲資料。
+    /// 操作說明，以及關卡無法開始時的錯誤訊息（勝敗結果由 LevelResultPanel 顯示）。
+    /// 只讀取其他系統的狀態，不修改任何遊戲資料。
     /// </summary>
     [DisallowMultipleComponent]
     public sealed class GateDefenseHud : MonoBehaviour
@@ -99,7 +100,7 @@ namespace CyberWizard.Presentation
             {
                 waveLine = $"波次：{waveDirector.StartedWaveCount}/{waveDirector.TotalWaveCount}　場上敵人：{waveDirector.AliveCount}";
                 if (waveDirector.StartedWaveCount < waveDirector.TotalWaveCount && flow != null &&
-                    flow.CurrentPhase == GamePhase.Wave)
+                    (flow.CurrentPhase == GamePhase.Wave || flow.CurrentPhase == GamePhase.Paused))
                 {
                     waveLine += $"　下一波：{waveDirector.TimeUntilNextWave:0} 秒";
                 }
@@ -125,22 +126,13 @@ namespace CyberWizard.Presentation
                 return;
             }
 
-            string message;
-            switch (flow.CurrentPhase)
+            // 勝利與失敗改由 LevelResultPanel 顯示；這裡只保留關卡無法開始的錯誤訊息。
+            if (flow.CurrentPhase != GamePhase.Failed)
             {
-                case GamePhase.Defeat:
-                    message = "<color=#ff6b6b>失敗：黃銅閘門已被打破</color>";
-                    break;
-                case GamePhase.Ended:
-                    message = "<color=#7dffa1>勝利：所有波次已清除</color>";
-                    break;
-                case GamePhase.Failed:
-                    message = $"<color=#ff6b6b>關卡無法開始：{flow.FailureReason}</color>";
-                    break;
-                default:
-                    return;
+                return;
             }
 
+            var message = $"<color=#ff6b6b>關卡無法開始：{flow.FailureReason}</color>";
             GUI.Label(new Rect(0f, Screen.height * 0.3f, Screen.width, Screen.height * 0.2f), message, _bannerStyle);
         }
     }

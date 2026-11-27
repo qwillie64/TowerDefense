@@ -15,7 +15,8 @@ namespace CyberWizard.Gameplay.GameFlow
     /// 閘門防守關卡的流程：讀取波次資料並開始排程；閘門被打破時判定失敗，
     /// 停止生成、讓場上敵人停下，並隱藏閘門物件。
     /// 若有設定跟隨攝影機：波次開始時啟用滑鼠視角（鎖定游標）。
-    /// 勝利或失敗的瞬間把遊戲時間放慢（Time.timeScale），玩家仍可操作；元件銷毀時把 timeScale 還原為 1。
+    /// 勝利或失敗的瞬間把遊戲時間放慢（Time.timeScale），玩家仍可操作；波次進行中可暫停（timeScale 0）。
+    /// 元件銷毀時若處於慢動作或暫停，把 timeScale 還原為 1。
     /// 本元件不含 UI，結果透過 PhaseChanged 事件與 Console 紀錄提供。
     /// </summary>
     [DisallowMultipleComponent]
@@ -45,6 +46,7 @@ namespace CyberWizard.Gameplay.GameFlow
         private readonly List<EnemyAgent> haltBuffer = new List<EnemyAgent>();
         private bool subscribed;
         private bool endSlowMotionApplied;
+        private float timeScaleBeforePause = 1f;
 
         public event Action<GamePhase> PhaseChanged;
 
@@ -105,6 +107,36 @@ namespace CyberWizard.Gameplay.GameFlow
             }
 
             ChangePhase(GamePhase.Wave);
+        }
+
+        /// <summary>
+        /// 暫停關卡：把 Time.timeScale 設為 0 並進入 Paused；只有在 Wave 狀態下有效。
+        /// 游標與玩家操作由呈現層（LevelPausePanel）處理。
+        /// </summary>
+        public bool TryPause()
+        {
+            if (CurrentPhase != GamePhase.Wave)
+            {
+                return false;
+            }
+
+            timeScaleBeforePause = Time.timeScale;
+            Time.timeScale = 0f;
+            ChangePhase(GamePhase.Paused);
+            return true;
+        }
+
+        /// <summary>從暫停恢復：還原暫停前的 Time.timeScale 並回到 Wave；只有在 Paused 狀態下有效。</summary>
+        public bool Resume()
+        {
+            if (CurrentPhase != GamePhase.Paused)
+            {
+                return false;
+            }
+
+            Time.timeScale = timeScaleBeforePause;
+            ChangePhase(GamePhase.Wave);
+            return true;
         }
 
         private void HandleGateDestroyed()
@@ -169,7 +201,8 @@ namespace CyberWizard.Gameplay.GameFlow
 
         private void RestoreTimeScale()
         {
-            if (!endSlowMotionApplied)
+            // 結束慢動作或暫停中（例如從暫停面板重新開始或中離）離開場景時都要還原。
+            if (!endSlowMotionApplied && CurrentPhase != GamePhase.Paused)
             {
                 return;
             }
