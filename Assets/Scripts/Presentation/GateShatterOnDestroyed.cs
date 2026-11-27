@@ -110,6 +110,8 @@ namespace CyberWizard.Presentation
             {
                 foreach (var body in FragmentRoot.GetComponentsInChildren<Rigidbody>())
                 {
+                    // 關卡結束會放慢遊戲時間但不縮小物理步長，開啟插值讓碎片在慢動作中仍平滑移動。
+                    body.interpolation = RigidbodyInterpolation.Interpolate;
                     body.AddExplosionForce(
                         explosionStrength,
                         _explosionCenter,

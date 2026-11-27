@@ -4,6 +4,7 @@ using CyberWizard.Core;
 using CyberWizard.Gameplay.Combat;
 using CyberWizard.Gameplay.Enemies;
 using CyberWizard.Gameplay.GameFlow;
+using CyberWizard.Gameplay.Player;
 using CyberWizard.Gameplay.Towers;
 using CyberWizard.Gameplay.Waves;
 using CyberWizard.Presentation;
@@ -72,6 +73,8 @@ namespace CyberWizard.Tests
             var rightTurn = rightPath.Waypoints[1].position;
             var seenEnemies = new System.Collections.Generic.HashSet<EnemyAgent>();
             var previousTimeScale = Time.timeScale;
+            var player = Object.FindObjectOfType<PrototypePlayerController>();
+            var cameraFollow = Object.FindObjectOfType<PrototypeCameraFollow>();
             Time.timeScale = TimeScale;
             try
             {
@@ -110,6 +113,14 @@ namespace CyberWizard.Tests
 
                 Assert.That(flow.CurrentPhase, Is.EqualTo(GamePhase.Defeat), "時限內閘門沒有被打破。");
                 Assert.That(gate.IsAlive, Is.False);
+
+                // 失敗瞬間遊戲時間放慢為 0.25 倍，玩家操作與滑鼠視角維持啟用。
+                Assert.That(Time.timeScale, Is.EqualTo(0.25f).Within(0.0001f), "失敗瞬間應放慢為 0.25 倍。");
+                Assert.That(player.InputEnabled, Is.True, "結束後不再停用玩家操作。");
+                Assert.That(cameraFollow.GameplayActive, Is.True, "結束後滑鼠視角維持啟用。");
+
+                // 以下檢查碎片落地等物理結果，恢復加速以縮短測試時間。
+                Time.timeScale = TimeScale;
                 Assert.That(GameObject.Find("Gate_Door"), Is.Null, "閘門破壞後原本的門應停用。");
                 Assert.That(GameObject.Find("Gate_Barrier"), Is.Null, "門前護欄仍依原設定隱藏。");
 
@@ -122,6 +133,7 @@ namespace CyberWizard.Tests
                 {
                     Assert.That(fragment.isKinematic, Is.False);
                     Assert.That(fragment.GetComponent<MeshCollider>().convex, Is.True);
+                    Assert.That(fragment.interpolation, Is.EqualTo(RigidbodyInterpolation.Interpolate), "慢動作中碎片應開啟插值。");
                 }
                 Assert.That(GameObject.Find("Gate_Pillar_West"), Is.Not.Null);
                 Assert.That(maxSpawnDistance, Is.LessThan(8f), "敵人應從左下角道路生成。");

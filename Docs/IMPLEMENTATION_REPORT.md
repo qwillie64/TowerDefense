@@ -2,7 +2,7 @@
 
 本文件依 `CLAUDE.md` 第 3 節累積記錄每項功能的實作內容。狀態用語：**已完成**、**部分完成**、**尚未實作**、**尚未驗證**。
 
-> 2026-11-26：專案結構已調整，原本 `Assets/_Project/` 底下的資料夾移到 `Assets/` 下，本文件中的路徑已全部同步改寫。舊場景 `VerticalSlice`、`SampleScene` 以及只服務它們的程式碼已刪除。下文中提到 `VerticalSlice` 的段落是當時的紀錄，詳見最後三節。
+> 2026-11-26：專案結構已調整，原本 `Assets/_Project/` 底下的資料夾移到 `Assets/` 下，本文件中的路徑已全部同步改寫。舊場景 `VerticalSlice`、`SampleScene` 以及只服務它們的程式碼已刪除。下文中提到 `VerticalSlice` 的段落是當時的紀錄，詳見「移除舊版場景與已棄用程式碼」與「專案資料夾結構調整」兩節。
 
 ---
 
@@ -20,7 +20,7 @@
 
 - Unity 2022.3.62f3、URP 14.0.12。**沒有新增任何外部套件。**
 - 場景物件使用 Unity 內建 Primitive（Cube、Cylinder）；上層與下層地面改用 `TerracePlatform` 產生的多邊形網格，以配合斜向的上下層交界。
-- 材質：URP Lit（實體物件）與 URP Unlit（半透明標示與外框線），共 18 個材質資產（新增 `Blockout_Boiler`；`Blockout_Crossroads` 目前已無物件使用，仍保留）。
+- 材質：URP Lit（實體物件）與 URP Unlit（半透明標示與外框線），共 18 個材質資產（新增 `Blockout_Boiler`；`Blockout_Crossroads` 目前已無物件使用，仍保留）。2026-11-26（晚） 道路改用 `Materials/Level1Environment/Env_RoadCobblestone`，`Blockout_Road` 也已無物件使用，仍保留（見「道路無縫銜接與鵝卵石路面」一節）。
 - 防區：自訂 `DefenseZone` 元件，以 Ear Clipping 三角化產生填色 `Mesh`，外框使用 `LineRenderer`。
 - 水平平台：自訂 `TerracePlatform` 元件，把多邊形擠出成柱體網格（頂面加側壁），並以同一個網格作為 `MeshCollider`。
 - 傾斜地形：把鏽巷的地形物件放在同一個旋轉過的父物件 `SlopedTerrain` 底下，整體坡度只由這個父物件的 X 軸旋轉決定。
@@ -43,7 +43,7 @@
 | `Assets/Tests/EditMode/PolygonTriangulatorTests.cs` | 三角化工具的 EditMode 測試（4 項）。 |
 | `Assets/Tests/EditMode/PolygonPrismTests.cs` | 柱體網格工具的 EditMode 測試（3 項）：面數、深度、正面方向與法線朝外。 |
 
-**場景階層（`Assets/Scenes/Level_1.unity`，含波次系統物件，整個場景共 124 個 GameObject；波次相關物件見下一節，玩家、攝影機與塔的戰鬥物件見第三節）**
+**場景階層（`Assets/Scenes/Level_1.unity`，含波次系統物件，整個場景共 124 個 GameObject（2026-11-26（晚） 六段方塊道路合併為 `Road_Network` 後為 119 個）；波次相關物件見下一節，玩家、攝影機與塔的戰鬥物件見第三節）**
 
 ```text
 Main Camera                  # 2026-11-26 新增：第三人稱跟隨（PrototypeCameraFollow）+ AudioListener
@@ -53,8 +53,8 @@ Directional Light
 Level1_Map
 ├─ SlopedTerrain             # 旋轉 X = −2°，北高南低；子物件使用本地座標
 │  ├─ Ground                 # Ground_Upper（鏽巷地面，TerracePlatform 多邊形，南緣沿斜向擋土牆）
-│  ├─ Roads                  # Road_GateApproach、Road_WestDiagonal、Road_EastDiagonal、
-│  │                         # Road_InnerLink、Road_South、Road_EastLink
+│  ├─ Roads                  # Road_Network（RoadNetwork，2026-11-26（晚） 取代原本六段方塊道路
+│  │                         # Road_GateApproach／WestDiagonal／EastDiagonal／InnerLink／South／EastLink）
 │  ├─ Walls                  # Wall_North_West/East、Wall_West、Wall_East、
 │  │                         # Wall_South（斜向擋土牆，連續無缺口）
 │  ├─ Gate_Brass             # Gate_Door、Gate_Pillar_*、Gate_FlankWall_*、Gate_Barrier、
@@ -88,7 +88,7 @@ Level1_Map
   - 防區的原點（即標籤位置）取參考圖中「防區 5／7／9」文字的位置，邊界頂點相對於原點。
 - 實體物件（塔、建築、管線、閘門、牆的厚度）維持原尺寸，只改變位置。
 - `SlopedTerrain` 底下的物件會跟著地形一起傾斜 2°，包含建築與管線；在這個角度下肉眼幾乎看不出來。鍋爐與塔不在 `SlopedTerrain` 底下，保持直立。
-- 道路寬度為 10（`Road_InnerLink` 為 9）。
+- 道路寬度為 10（`Road_InnerLink` 為 9）。2026-11-26（晚） 起道路資料存在 `Road_Network` 的 `RoadNetwork` 元件中，寬度不變。
 - 場景本身是唯一的配置資料來源：所有位置都存在各物件的 Transform 或元件欄位中，程式碼內沒有寫死任何關卡座標。
 
 **防禦塔位置（參考圖白色圓圈）**
@@ -133,7 +133,7 @@ Level1_Map
 - 地形傾斜在正俯視下看不出來；從斜視角或側面可以看到鏽巷北高南低、防區平台保持水平並在南側露出側壁，以及上城區明顯低於鏽巷。
 - 顏色配置：
   - 地面：深灰。
-  - 道路：土黃。
+  - 道路：土黃（2026-11-26（晚） 改為鵝卵石貼圖 `Env_RoadCobblestone`）。
   - 建築：兩種灰色。
   - 高牆與擋土牆：暗紫。
   - 塔：象牙白塔身、深藍基座、黑色砲管。
@@ -151,6 +151,7 @@ Level1_Map
   - `Road_InnerLink` 沿防區 7 西南緣，連接 `Road_WestDiagonal` (−45.9, 17.6) 與 `Road_South` (24.4, −16.4)，與兩條斜路圍出中央三角街區。
   - `Road_South` 沿擋土牆北側斜向延伸，從西牆 (−126, −82.9) 到東側路口；`Road_EastLink` 從東側路口接到東牆 (126, 19.3)。
   - 下層（上城區）與鏽巷之間沒有道路相連。敵軍從左下角 `Road_WestDiagonal` 與 `Road_South` 交會的路口出發。
+  - 2026-11-26（晚）：以上六段合併為 `Road_Network` 中的四條折線，連通關係與中線位置不變，只把各段端點對齊到路口（見「道路無縫銜接與鵝卵石路面」一節）。
 - 進入 Play Mode 後會自動開始兩波敵人，詳見下一節「第一關波次與閘門攻防」。
 
 ### 可調整參數
@@ -193,7 +194,7 @@ Level1_Map
   - 平台頂面取範圍內最高處，所以平台的下坡側會高出地面：防區 5 南端最高約 5.8，防區 9 南緣約 3.9，防區 7 南緣約 3.3。
   - 上城區（下層）內目前只有地面與兩座鍋爐，沒有建築或道路。
   - 外牆簡化為正方形。
-- 多段道路在交會處互相重疊，頂面同高，近距離時可能看到 Z-fighting 閃爍（同色，俯視下不明顯）。
+- ~~多段道路在交會處互相重疊，頂面同高，近距離時可能看到 Z-fighting 閃爍~~（2026-11-26（晚） 已改為單一網格、平面投影 UV，重疊處畫面相同，見「道路無縫銜接與鵝卵石路面」一節）。
 - 地圖放大後物件相對變小：俯視全圖時，塔號與閘門的文字標籤在 1080p 下已難以閱讀，塔本身只剩小圓點。這些標籤附在維持原尺寸的物件上，所以沒有放大。
 - 道路寬度不變而地圖放大，道路以外出現大片空地（深灰色地面）。這些空地沒有任何標示，是否可通行尚未定義。
 - 防區只是視覺標示，尚未提供「某個點是否在防區內」的查詢，也沒有和塔建立資料關聯。
@@ -343,7 +344,7 @@ Level1_Map
   - `EnemyPath`：路徑點。
   - `LevelScheduleLoader` 與 `LevelScheduleParser`：讀取並驗證 JSON。
   - `BaseCore`：可受傷目標與世界血條。
-- 波次資料使用 StreamingAssets 中的 JSON，格式與既有關卡相同（version 1）。
+- 波次資料使用 StreamingAssets 中的 JSON，格式與既有關卡相同（version 1）。2026-11-26（晚） 起 WebGL 執行檔改用 `UnityWebRequest` 讀取，見「StreamingAssets 讀取支援 WebGL」一節。
 - 小兵數值沿用既有的 `EnemyLevel0` 資產（使用者指定「舊版」數值）。
 - 沒有新增外部套件。
 
@@ -393,6 +394,7 @@ Level1_Systems               # EnemySpawner + WaveDirector + GateDefenseFlow
 | `path_right`（路徑二） | 左下角路口 → 沿 `Road_South` 往東，經過第一條路 `Road_InnerLink`，到第二條路 `Road_EastDiagonal` 的路口 (97.4, 16.0) → 左轉沿 `Road_EastDiagonal` 到 Y 字路口 → 閘門前 | 約 370 | 約 123 秒 |
 
 - 兩條路線都從左下角出發、都不經過下層，最後都經過 `Road_GateApproach`，停在閘門擋板前約 4 的位置。
+- 2026-11-26（晚）：表中的 `Road_*` 方塊已合併為 `Road_Network`，各段道路中線不變（`Road_GateApproach` 與 `Road_WestDiagonal` 合併為 `GateApproach_WestDiagonal`，`Road_South` 與 `Road_EastLink` 合併為 `South_EastLink`），路線與路徑點沒有修改。
 - 「第二條道路」指從左下角往東數的第二條路（東側斜路），這是向使用者確認後的解讀。
 - 路線 ID 維持 `path_upper`、`path_right`；原本的 `path_east`、`Spawn_East` 已刪除。生成點 ID 由 `spawn_ramp` 改為 `spawn_southwest`。
 - 閘門前的路徑點 `Path_Upper/WP_02` 沿用最初的 `WP_08` 物件，所以 `EnemySpawner.destination` 的參照沒有改變。`EnemySpawner` 的 `secondarySpawnPoint` 已清空。
@@ -420,7 +422,7 @@ Level1_Systems               # EnemySpawner + WaveDirector + GateDefenseFlow
    - 隱藏 `Gate_Door` 與 `Gate_Barrier`。
    - 狀態改為 Defeat，並在 Console 記錄 `[GateDefenseFlow] Defeat：黃銅閘門已被打破`。
 5. 若所有波次清除（2026-11-26 起塔與玩家可以消滅敵人，所以可能發生），狀態改為 Ended，並記錄 Victory。
-6. 2026-11-26 新增：失敗或勝利時，`GateDefenseFlow` 停用玩家操作並釋放滑鼠游標（若有設定 `player`、`cameraFollow`）。
+6. 2026-11-26 新增：失敗或勝利時，`GateDefenseFlow` 停用玩家操作並釋放滑鼠游標（若有設定 `player`、`cameraFollow`）。**2026-11-26（晚） 已改為**：勝敗瞬間把 `Time.timeScale` 設為 0.25，玩家操作與滑鼠視角維持啟用；`player` 欄位已移除（見「關卡結束慢動作」一節）。
 
 ### 遊戲呈現
 
@@ -573,7 +575,7 @@ Level_1 PlayMode 測試確認了以下事項（2026-11-26 起，此測試一開�
 | `Gameplay/Level/FixedTower.cs` | 砲管直接掛在塔底下 → 新增可選的 `turretPivot`、`muzzle`。設定後砲管與砲口改放在樞紐底下，可整組轉向；沒設定時行為不變。 |
 | `Gameplay/Waves/WaveDirector.cs` | 新增 `TryGetUpcomingWave`（下一個尚未開始的波次）；`StopSchedule` 後回傳 false。 |
 | `Gameplay/Enemies/EnemySpawner.cs` | 新增 `TryGetRoutePoints`（出生點＋路線所有路徑點），供箭頭使用。 |
-| `Gameplay/GameFlow/GateDefenseFlow.cs` | 新增可選欄位 `player`、`cameraFollow`：波次開始時啟用滑鼠視角（鎖定游標）；勝敗時停用玩家操作並釋放游標。 |
+| `Gameplay/GameFlow/GateDefenseFlow.cs` | 新增可選欄位 `player`、`cameraFollow`：波次開始時啟用滑鼠視角（鎖定游標）；勝敗時停用玩家操作並釋放游標。（2026-11-26（晚） 改為勝敗時放慢時間、不停用操作，`player` 欄位移除。） |
 | `Data/Enemies/EnemyLevel0/1/2.asset`、`EnemyBoss.asset` | 擊殺獎勵 150／200／300／500 → **100／150／250／400**。 |
 | `Editor/VerticalSliceSceneBuilder.cs` | 同步修改上面四個獎勵值，避免重建 VerticalSlice 時被改回。（此檔已於 2026-11-26 刪除。） |
 | `Tests/PlayMode/Level1GateDefensePlayModeTests.cs` | 一開始先停用三座塔，維持驗證「無人防守時閘門被打破」。 |
@@ -662,7 +664,7 @@ Level1_Systems         # 新增元件：ResourceWallet、RewardService、Prototy
 | 初始能量 | 0（**暫定**） |
 | 升級互動距離 | 12（**暫定**，玩家與塔中心的水平距離） |
 | 箭頭外形 | 間距 3.5、寬 3.2、長 1.6、線條粗 0.7、離路面 0.12（暫定） |
-| 出生點煙霧 | 半徑 9 的圓形範圍、每秒 22 個粒子、大小 5～10、壽命 4～7 秒、預熱（暫定） |
+| 出生點煙霧 | 半徑 9 的圓形範圍、每秒 22 個粒子、大小 5～10、壽命 4～7 秒、預熱（暫定）。2026-11-26（晚） 改為半徑 18、每秒 44 個、大小 10～20，見「出生點灰霧放大」一節 |
 | 砲口火焰 | 一次 16 個粒子、壽命 0.06～0.14 秒、錐角 20°（暫定） |
 
 ### 遊戲呈現
@@ -681,7 +683,7 @@ Level1_Systems         # 新增元件：ResourceWallet、RewardService、Prototy
   - 塔的左側或右側（選靠近畫面中央的一側）出現深色半透明面板，列出三個部位的等級、升級後數值與花費。
   - 能量不足的花費顯示為紅色，足夠時為黃色；按鍵失敗時該行會短暫顯示「能量不足」或「已滿級」。
   - 地面同時顯示該塔的射程圈，HUD 也會顯示「可升級：N號塔」。（2026-11-26 起射程圈為貼地環帶，射程內有敵人時為紅色、沒有時為白色；之後又改為不論玩家遠近都持續顯示。）
-- **結束**：閘門被打破或所有波次清除時，畫面中央顯示失敗或勝利訊息，玩家停止操作、滑鼠游標釋放。
+- **結束**：閘門被打破或所有波次清除時，畫面中央顯示失敗或勝利訊息，玩家停止操作、滑鼠游標釋放。（2026-11-26（晚） 改為：遊戲時間放慢為 0.25 倍，玩家仍可移動、攻擊與轉動視角，游標維持鎖定。）
 
 ### 限制與待改善事項
 
@@ -698,14 +700,14 @@ Level1_Systems         # 新增元件：ResourceWallet、RewardService、Prototy
 - **箭頭**：
   - 兩條路線的起點（出生點到第一個路徑點）完全重疊，那一小段的箭頭顏色較深。
   - 箭頭平放，沒有跟著 2° 坡度傾斜，只靠高出路面 0.12 避免閃爍。
-- **煙霧**：出生點在地圖角落，半徑 9 的煙霧有一部分飄到外牆外的下層上方。
+- **煙霧**：出生點在地圖角落，半徑 9 的煙霧有一部分飄到外牆外的下層上方。（2026-11-26（晚） 半徑改為 18，飄出牆外的部分更多。）
 - **3D 提示**：
   - 面板會被建築或塔擋住（TextMesh 有深度測試）。
   - 塔在攝影機背後時看不到面板，只能看 HUD 的提示文字。
   - 中文字形依賴作業系統字型。
 - **既有地圖標籤**：灰盒階段為俯視設計的平放文字（「5號塔」、「防區 5」等），在第三人稱視角下會呈現傾斜或倒轉。
 - **HUD 與小地圖**：使用 IMGUI，每幀產生少量字串與列舉器配置；正式 UI 需改用 UI Toolkit 或 uGUI。沒有暫停與重新開始。
-- **游標**：波次進行中游標被鎖定；在編輯器中按 Esc 可釋放。沒有暫停選單。
+- **游標**：波次進行中游標被鎖定；在編輯器中按 Esc 可釋放。沒有暫停選單。2026-11-26（晚） 起關卡結束後游標也維持鎖定（不再釋放）。
 - **平台側壁**：玩家能否從各方向走到每座塔 12 以內，**尚未驗證**。平台側壁沒有階梯，有些方向可能需要跳上去。
 - **建置**：`Level_1` 仍未加入 Build Settings。（2026-11-26 已加入，並且是 Build Settings 中唯一的場景。）
 
@@ -1173,3 +1175,251 @@ Unity 編輯器開著，所以把 `Assets`、`Packages`、`ProjectSettings` 複�
 | PlayMode 測試 | **7 項中 5 項通過**。擴充後的 `Level1_MinionsClimbToGateBreakItAndThenEverythingStops` 通過。失敗的 2 項與前幾節相同（`FixedTowerProfile.asset` 的攻擊力為 20，但測試寫死 10），與本次修改無關。 |
 | 截圖檢查 | 以暫時的截圖測試（已刪除）在破碎前、破碎後 0.25 秒、1 秒與 4 秒截圖：門裂成 24 塊後往前倒塌，4 秒時碎片散落在閘門前方。第一版往北推的碎片會掉出地圖，已依此修正方向。 |
 | 實際遊玩中閘門被打破時的觀感、在 Inspector 調整破碎參數 | **尚未驗證** |
+
+---
+
+## StreamingAssets 讀取支援 WebGL
+
+- 紀錄日期：2026-11-26（晚）
+- 狀態：**已完成**（編輯器與 WebGL 腳本編譯已驗證；WebGL 執行檔實際執行**尚未驗證**）。
+
+### 功能目的
+
+專案要同時輸出 WebGL 與本地執行檔。WebGL 執行檔的 `Application.streamingAssetsPath` 是伺服器網址，不能用 `System.IO.File` 讀取，原本的 `File.ReadAllText` 會找不到波次 JSON，導致關卡無法開始。
+
+### 使用技術
+
+- `UnityWebRequest.Get` + `SendWebRequest()`（內建模組 `com.unity.modules.unitywebrequest`，專案原本就已啟用）。**沒有新增外部套件。**
+- 條件編譯 `#if UNITY_WEBGL && !UNITY_EDITOR`：只有 WebGL 執行檔走網路請求；編輯器與本地執行檔照舊同步讀檔。
+- 以 `IEnumerator` 表示「可能需要等待」的讀取，由呼叫端手動 `MoveNext()` 走訪。
+
+### 實作方式
+
+| 檔案 | 修改 |
+| --- | --- |
+| `Assets/Scripts/Infrastructure/LevelScheduleLoader.cs` | 新增 `Load(relativePath, onCompleted)`：依平台選擇 `LoadWithWebRequest`（WebGL）或 `LoadFromFile`（其他）。新增 `LoadWithWebRequest(uri, relativePath, onCompleted)` 與 `BuildUri(relativePath)`（以 `/` 串接網址）。原有的同步 `TryLoadFromStreamingAssets` 保留，供本地讀檔與 EditMode 測試使用。 |
+| `Assets/Scripts/Gameplay/GameFlow/GateDefenseFlow.cs` | `Start()` 改為 `IEnumerator Start()`，以 `while (loading.MoveNext()) yield return loading.Current;` 走訪讀取流程，完成後才初始化 `WaveDirector`、切到 `Ready` 並開始波次。 |
+
+- 本地讀檔的列舉器不會 yield，第一次 `MoveNext()` 就結束，所以編輯器與本地執行檔的啟動時序與修改前相同（同一幀內進入 `Wave`），既有 PlayMode 測試不需要改等待方式。
+- WebGL 會等待網路請求完成，這段期間 `CurrentPhase` 維持 `Starting`，HUD 不顯示勝敗訊息。
+- 請求失敗或 JSON 解析失敗時，`onCompleted` 收到 `(null, 錯誤訊息)`，`GateDefenseFlow` 進入 `Failed` 並在 Console 與 HUD 顯示原因（與修改前讀檔失敗的處理相同）。
+- `LoadWithWebRequest` 在所有平台都會編譯，只有 `Load()` 的選擇受條件編譯影響，因此在編輯器中也能以 `file://` 網址測試同一段程式。
+
+### 遊戲呈現
+
+玩家看不到差異；WebGL 版開場會多等一次網路請求（本機伺服器通常在一幀到數幀內完成）才開始倒數。
+
+### 限制與待改善事項
+
+- **尚未驗證**：實際建置 WebGL 並在瀏覽器（經由 HTTP 伺服器）執行。只驗證了 WebGL 平台的腳本編譯。
+- 沒有逾時與重試；請求失敗就直接進入 `Failed`。
+- 以 `file://` 直接開啟 WebGL 的 `index.html` 時，瀏覽器通常會擋下請求，需經由 HTTP 伺服器開啟（WebGL 本身的限制）。
+
+### 驗證方式
+
+| 項目 | 結果 |
+| --- | --- |
+| 編輯器編譯 | 通過，沒有錯誤或警告。 |
+| WebGL 平台腳本編譯 | 以暫時的 Editor 腳本（已刪除）呼叫 `PlayerBuildInterface.CompilePlayerScripts`（目標 WebGL），19 個組件編譯成功，含 `CyberWizard.Runtime.dll`，沒有錯誤。 |
+| EditMode：`LevelScheduleLoaderEditModeTests`（新增 3 項） | 通過：編輯器中第一次 `MoveNext()` 就同步完成並取得 2 個波次；缺檔時回報含檔名的錯誤；`BuildUri` 以 `/` 串接。 |
+| PlayMode：`LevelScheduleLoaderPlayModeTests`（新增 2 項） | 通過：以 `file://` 網址呼叫 `LoadWithWebRequest`，正確解析 `level1_rust_alley`；缺檔時回報錯誤。 |
+| 既有關卡流程 | `Level1_MinionsClimbToGateBreakItAndThenEverythingStops` 等 Level_1 PlayMode 測試通過，關卡照常進入 `Wave`。 |
+| WebGL 執行檔實際執行 | **尚未驗證** |
+
+---
+
+## 道路無縫銜接與鵝卵石路面
+
+- 紀錄日期：2026-11-26（晚）
+- 狀態：**已完成**。
+
+### 功能目的
+
+原本六段道路是各自旋轉的扁平方塊，路口只靠互相重疊：閘門前的 Y 字路口東側斜路沒有接上閘門道路、方塊的直角從路口突出，接縫處也有 Z-fighting。本次讓路面在視覺上無縫銜接，並依 `Ref/第一關地圖.png` 的鵝卵石路面，從 `YughuesFreePavementsMaterials` 選出最接近的材質鋪在道路上。
+
+### 使用技術
+
+- 自訂元件 `RoadNetwork` + 純靜態工具 `RoadMeshBuilder`，以程式產生 `Mesh`（頂點、法線、切線、UV、三角形）。**沒有新增外部套件**；貼圖來自使用者已放入專案的 `YughuesFreePavementsMaterials`。
+- 網格做法：每段中線產生一個矩形；折線中間的轉折點補一個外接正多邊形圓盤（24 邊，半徑為半寬），形成圓角；兩端為平頭。
+- UV 採平面投影（本地 XZ ÷ 貼圖尺寸），切線固定為 (1, 0, 0, −1)。重疊的三角形取樣到完全相同的貼圖與法線，所以即使深度相同也看不出接縫或閃爍。
+- 材質：URP Lit，Specular 工作流程，使用 `T_YFPM_StonesSmooth` 的 `_d`（Base Map）、`_n`（Normal Map）、`_s`（Specular Map）。
+
+### 實作方式
+
+| 檔案 | 責任 |
+| --- | --- |
+| `Assets/Scripts/Gameplay/Level/RoadMeshBuilder.cs` | `AppendPolyline(points, width, height, textureTileSize, joinSegments, ...)`：把一條折線附加到網格緩衝區；少於兩點、寬度或貼圖尺寸不大於 0 時回傳 false。 |
+| `Assets/Scripts/Gameplay/Level/RoadNetwork.cs` | `[ExecuteAlways]`，保存道路清單（名稱、路寬、中線頂點），在 `OnEnable`／`OnValidate` 重建合併網格。網格標記 `DontSave`，不寫入場景檔（與 `TerracePlatform` 相同做法）。沒有碰撞。 |
+| `Assets/Materials/Level1Environment/Env_RoadCobblestone.mat` | 新材質。Base Color (1, 0.9, 0.78) 讓石塊偏暖褐色以接近參考圖，Smoothness 0.5（暫定值）。 |
+| `Assets/Scenes/Level_1.unity` | 刪除 `Road_GateApproach`、`Road_WestDiagonal`、`Road_EastDiagonal`、`Road_InnerLink`、`Road_South`、`Road_EastLink`；新增 `SlopedTerrain/Roads/Road_Network`（本地 Y = 0.1，與原道路頂面同高；不投射陰影、接收陰影）。GameObject 由 124 個變為 119 個。 |
+
+**道路資料**（`Road_Network` 本地 XZ，與原道路中線相同；端點改成原道路中線的交點）
+
+| 名稱 | 路寬 | 頂點 |
+| --- | --- | --- |
+| `GateApproach_WestDiagonal` | 10 | (10, 114.07) → (10, 92.07) → (−119.06, −79.92) |
+| `EastDiagonal` | 10 | (10, 98.85) → (97.36, 15.98) |
+| `South_EastLink` | 10 | (−126, −82.99) → (97.36, 15.98) → (126, 19.31) |
+| `InnerLink` | 9 | (−45.89, 17.59) → (24.37, −16.36) |
+
+- 交點由原本各方塊的中線計算：西斜路與閘門道路交於 (10, 92.07)，東斜路延長後交於 (10, 98.85)；左下角 (−119.06, −79.92) 與東側 (97.36, 15.98) 正好是敵人路徑點 `WP_00` 與 `path_right/WP_01` 的位置。
+- 原本超出路口的部分（西斜路伸到 (−122.1, −83.9)、東斜路與南路伸過東側路口約 4）已裁掉。
+- 接到另一條路的端點放在那條路的中線上，平頭的兩角落在那條路的範圍內（該路不比這條路窄時成立）；轉彎處由圓盤補滿外側。
+
+**材質選擇**：比對套件中 20 種貼圖後，`StonesSmooth`（圓潤的鵝卵石）的形狀最接近參考圖的石板路；`Mediterranean01` 顏色較接近但石塊扁平細碎，像砌牆石。原貼圖偏灰綠，因此以 Base Color 調暖。套件原本的材質使用內建管線的 Standard (Specular setup) shader，在 URP 下會顯示為洋紅色，所以沒有直接使用，也沒有修改套件內的檔案（套件附的 URP `.unitypackage` 未匯入）。
+
+### 可調整參數
+
+| 物件／元件 | 參數 | 用途 |
+| --- | --- | --- |
+| `Road_Network` → `RoadNetwork` | `roads[].points` | 道路中線頂點（本地 XZ）。中間點自動補圓角；兩端平頭。 |
+| 同上 | `roads[].width` | 路寬（目前 10，`InnerLink` 為 9）。 |
+| 同上 | `textureTileSize` | 貼圖重複一次的距離，目前 4（暫定值；數值越大石塊越大）。 |
+| 同上 | `joinSegments` | 轉角圓盤的邊數，目前 24。 |
+| `Road_Network` Transform | Position Y | 路面高度，目前 0.1（與原方塊道路頂面相同）。 |
+| `Env_RoadCobblestone` | Base Color、Smoothness、Normal 強度 | 路面色調與光澤（暫定值）。 |
+
+### 遊戲呈現
+
+- 路面為暖褐色鵝卵石，所有路口與轉角都連成一片，沒有缺口、突出的直角或閃爍；俯視小地圖中也能看到石紋。
+- 閘門前的 Y 字路口：西斜路以圓角轉進閘門道路，東斜路直接接上閘門道路。
+- 道路接到東、西外牆的兩端是平頭，不會穿出牆外。
+- 敵人路線、路徑點、路線箭頭都沒有修改，箭頭仍浮在路面上方。
+
+### 限制與待改善事項
+
+- 路口內側仍是直角，沒有內側倒角；參考圖中的大弧度彎道仍以直線段近似。
+- 路面只有頂面，沒有路緣石或側面；道路與地面的 0.1 高低差在一般視角看不出來。
+- 平面投影 UV 使貼圖方向固定（不隨道路方向旋轉），鵝卵石沒有方向性，所以看不出差異；若改用有方向的石板貼圖需要另外處理。
+- 場景沒有烘焙光照與反射探針，環境反射為黑色，路面的高光表現比套件預覽暗；顏色與光澤為暫定值，需由美術確認。
+- `Blockout_Road` 材質已無物件使用，仍保留。
+- 在使用者開啟中的編輯器內，Inspector 修改道路頂點後即時重建**尚未驗證**。
+- `YughuesFreePavementsMaterials` 仍是未提交的新資料夾（含兩個 `.unitypackage`，約 200 MB 的 TGA 貼圖），本次沒有修改它；是否加入版本控制由使用者決定。
+
+### 驗證方式
+
+使用者沒有開啟 Unity 編輯器，直接在專案上以 Unity 2022.3.62f3 批次模式執行。
+
+| 項目 | 結果 |
+| --- | --- |
+| 場景修改 | 以暫時的 Editor 腳本（已刪除）建立材質、刪除六段道路、建立 `Road_Network` 並存檔。修改前的場景另存一份在暫存資料夾作為備份。 |
+| EditMode：`RoadMeshBuilderTests`（新增 4 項） | 通過：直線路是一個朝上的矩形（平頭）；轉角補圓盤且覆蓋外側轉角、不超出半寬；所有頂點 UV 等於平面投影、法線朝上；無效輸入不附加資料。 |
+| PlayMode：`Scene_HasFollowCameraMinimapAndSpawnSmoke`（擴充） | 通過：`Roads` 底下只剩 `Road_Network`，含 4 條道路，網格頂點數大於 16，材質為 `Env_RoadCobblestone`。 |
+| 截圖檢查 | 以暫時的截圖工具（已刪除）輸出全圖俯視、五個路口特寫與兩張斜視圖，修改前後對照：Y 字路口由斷開變為相連，各路口沒有缺口或突出直角，兩端與外牆齊平，鵝卵石貼圖正確顯示（不是洋紅色）。 |
+| 實際遊玩時近距離觀看路面、在 Inspector 調整道路資料 | **尚未驗證** |
+
+---
+
+## 出生點灰霧放大
+
+- 紀錄日期：2026-11-26（晚）
+- 狀態：**已完成**。
+
+### 功能目的
+
+依使用者要求，敵方出生點（`Spawn_SouthWest/SpawnSmoke`）的灰霧大小提升為 2 倍、密度提升 1 倍。
+
+### 使用技術
+
+內建 `ParticleSystem`（沿用既有設定與 `Fx_Smoke` 材質）。**沒有新增外部套件，沒有修改程式碼。**
+
+### 實作方式
+
+「大小 ×2」解讀為整團煙霧等比例放大：範圍、粒子尺寸與移動速度一起乘 2，煙霧形狀不變。等比例放大後，單位面積上的粒子覆蓋層數不變；「密度 ×2」再把每秒生成數加倍，覆蓋層數變為 2 倍。
+
+| 參數 | 修改前 | 修改後 |
+| --- | --- | --- |
+| Shape（Circle）Radius | 9 | 18 |
+| Start Size | 5～10 | 10～20 |
+| Start Speed | 0.4～1.4 | 0.8～2.8 |
+| Velocity over Lifetime（World） | X、Z：−0.4～0.4；Y：0.3～0.9 | X、Z：−0.8～0.8；Y：0.6～1.8 |
+| Emission Rate over Time | 22 | 44 |
+| Max Particles | 300 | 600 |
+
+壽命（4～7 秒）、顏色、透明度、Size／Color over Lifetime 與預熱都沒有修改。以暫時的 Editor 腳本（已刪除）修改後存入場景。
+
+### 遊戲呈現
+
+左下角出生點的灰霧範圍直徑由約 18 變為約 36，且明顯較濃；敵人從更大片的霧中走出。路線箭頭在霧中仍可看見。
+
+### 限制與待改善事項
+
+- 出生點在地圖角落，半徑 18 的霧有相當大一部分飄到西牆外與擋土牆南側的下層上方。
+- 同時存在的粒子約 240 個（44 × 平均壽命 5.5 秒），每個粒子更大，半透明重疊（overdraw）比修改前高；WebGL 或低階顯示卡上的效能**尚未驗證**。
+- 若「密度」原意是指透明度而不是粒子數量，需要再調整 Start Color 的 Alpha。
+
+### 驗證方式
+
+| 項目 | 結果 |
+| --- | --- |
+| PlayMode：`Scene_HasFollowCameraMinimapAndSpawnSmoke`（更新） | 通過：半徑 18、尺寸 10～20、每秒 44 個、上限 600，開場預熱後粒子數大於 40。 |
+| 截圖檢查 | 以暫時的 PlayMode 截圖測試（已刪除）在進入場景 10 幀後從斜上方與正上方截圖：出生點被大片濃灰霧覆蓋。 |
+| 實際遊玩中的觀感與效能 | **尚未驗證** |
+
+---
+
+## 關卡結束慢動作
+
+- 紀錄日期：2026-11-26（晚）
+- 狀態：**已完成**。
+
+### 功能目的
+
+取代原本「勝利或失敗時停用玩家操作並釋放游標」的做法：結束的瞬間把遊戲時間放慢為 0.25 倍，玩家仍可操作，滑鼠視角的轉動速度也跟著變慢。
+
+### 使用技術
+
+- `Time.timeScale`。**沒有新增外部套件。**
+- 移動、攻擊冷卻、敵人、粒子等原本就以 `Time.deltaTime`／`Time.time` 計算，自動跟著變慢。
+- 滑鼠視角：`Input.GetAxis("Mouse X/Y")` 是每幀的滑鼠位移，與時間無關，因此在 `PrototypeCameraFollow` 乘上 `Time.timeScale`。
+- `Rigidbody.interpolation`：閘門碎片開啟插值，讓慢動作中的碎片平滑移動。
+
+### 實作方式
+
+| 檔案 | 修改 |
+| --- | --- |
+| `Assets/Scripts/Gameplay/GameFlow/GateDefenseFlow.cs` | 移除 `EndPlayerControl()` 與 `player` 欄位；勝利（`Ended`）與失敗（`Defeat`）時改呼叫 `ApplyEndSlowMotion()`，把 `Time.timeScale` 設為 `endTimeScale`（預設 0.25）。`OnDestroy` 時若曾放慢則還原為 1，避免影響下一個場景。 |
+| `Assets/Scripts/Presentation/PrototypeCameraFollow.cs` | 滑鼠靈敏度乘上 `Time.timeScale`。 |
+| `Assets/Scripts/Presentation/GateShatterOnDestroyed.cs` | 碎片剛體設為 `RigidbodyInterpolation.Interpolate`。 |
+
+- **物理步長（`Time.fixedDeltaTime`）刻意不縮小**：第一版把步長同比例縮為 0.005，結果閘門碎片的物理結果改變（碎片平均位置往北（關外）偏約 1.2，`Level1_MinionsClimbToGateBreakItAndThenEverythingStops` 的「碎片往南推」檢查失敗）；恢復原步長後連續兩次通過。因此保留原步長 0.02（慢動作中約每 0.08 秒真實時間一步），改以剛體插值維持畫面平滑。
+- 結束後 `cameraFollow` 維持啟用，游標保持鎖定；HUD 照常顯示勝敗訊息。
+
+### 可調整參數
+
+| 物件／元件 | 參數 | 用途 |
+| --- | --- | --- |
+| `GateDefenseFlow` | `endTimeScale` | 勝敗瞬間套用的時間倍率，預設 0.25（範圍 0.05～1；1 表示不放慢）。 |
+
+### 遊戲呈現
+
+- 閘門被打破或最後一個敵人被清除的瞬間，整個遊戲變成 0.25 倍速：玩家移動、跳躍、攻擊、敵人、塔、閘門碎片與煙霧都變慢，轉動滑鼠時視角也以 1/4 的速度轉動。
+- 畫面中央照常顯示「失敗」或「勝利」訊息；玩家仍可在慢動作中移動與攻擊。
+- 失敗時敵人仍維持停止；勝利後場上已沒有敵人。
+
+### 限制與待改善事項
+
+- 慢動作會一直持續到離開場景，沒有回到正常速度、重新開始或返回選單的流程（目前專案也沒有這些流程）。
+- 結束後玩家仍可攻擊、升級塔（升級會花費能量），這些操作不會改變已判定的勝敗結果。
+- 失敗後塔仍會攻擊停住的敵人；排程已停止，擊殺後不會轉為勝利。
+- 慢動作期間物理步長仍是 0.02 遊戲秒；除了閘門碎片外，若之後加入其他剛體，需要一併開啟插值。
+- 滑鼠靈敏度在任何時候都乘上 `Time.timeScale`，所以測試中加速到 20 倍時視角也會轉得較快（實際遊戲中平常為 1，不受影響）。
+- 實際用滑鼠轉動視角的速度變化**尚未驗證**（批次模式沒有滑鼠輸入）。
+
+### 驗證方式
+
+| 項目 | 結果 |
+| --- | --- |
+| PlayMode：`Level1EndSlowMotionPlayModeTests.Victory_SlowsGameTimeAndKeepsPlayerControl`（新增） | 通過：以 20 倍速並直接擊殺所有生成的敵人，勝利瞬間 `Time.timeScale` 為 0.25、`fixedDeltaTime` 不變、`player.InputEnabled` 與 `cameraFollow.GameplayActive` 仍為 true；之後 30 幀遊戲時間前進量小於真實時間的 0.3 倍。 |
+| PlayMode：`Level1_MinionsClimbToGateBreakItAndThenEverythingStops`（擴充） | 通過：失敗瞬間 `Time.timeScale` 為 0.25，玩家操作與滑鼠視角維持啟用，碎片皆開啟插值；之後恢復加速檢查碎片落點，結果與修改前相同。 |
+| 滑鼠視角轉速、實際遊玩觀感 | **尚未驗證** |
+
+---
+
+## 本輪測試總結（2026-11-26 晚）
+
+| 項目 | 結果 |
+| --- | --- |
+| EditMode 測試 | **28 項全數通過**（新增 7 項：`RoadMeshBuilderTests` 4 項、`LevelScheduleLoaderEditModeTests` 3 項）。 |
+| PlayMode 測試 | **10 項中 8 項通過**（新增 3 項，皆通過）。失敗的 2 項與前幾節相同：`Towers_AimFireRivetsKillEnemiesAndGrantEnergy`、`Upgrade_PlayerNearTowerUpgradesEachPartWithEnergy`，原因是 `FixedTowerProfile.asset` 的攻擊力為 20，但測試寫死 10，與本次修改無關。 |
+| 暫時檔案 | 截圖工具、場景修改腳本、WebGL 編譯檢查腳本與截圖測試都已刪除（含 `.meta`）。 |

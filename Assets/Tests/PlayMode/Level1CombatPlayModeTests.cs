@@ -289,7 +289,22 @@ namespace CyberWizard.Tests
 
             var smoke = GameObject.Find("Spawn_SouthWest/SpawnSmoke").GetComponent<ParticleSystem>();
             Assert.That(smoke.isPlaying, Is.True);
-            Assert.That(smoke.particleCount, Is.GreaterThan(20), "煙霧應預熱，一開始就有大量粒子。");
+            Assert.That(smoke.particleCount, Is.GreaterThan(40), "煙霧應預熱，一開始就有大量粒子。");
+            // 2026-11-26：範圍與粒子尺寸放大為 2 倍（半徑 9→18、尺寸 5～10→10～20），每秒生成數加倍（22→44）。
+            Assert.That(smoke.shape.radius, Is.EqualTo(18f).Within(0.001f));
+            Assert.That(smoke.main.startSize.constantMin, Is.EqualTo(10f).Within(0.001f));
+            Assert.That(smoke.main.startSize.constantMax, Is.EqualTo(20f).Within(0.001f));
+            Assert.That(smoke.emission.rateOverTime.constant, Is.EqualTo(44f).Within(0.001f));
+            Assert.That(smoke.main.maxParticles, Is.EqualTo(600));
+
+            // 道路改為單一 RoadNetwork 網格，舊的六段方塊道路已移除。
+            var roads = GameObject.Find("Roads").transform;
+            Assert.That(roads.childCount, Is.EqualTo(1));
+            var network = roads.GetChild(0).GetComponent<CyberWizard.Gameplay.Level.RoadNetwork>();
+            Assert.That(network, Is.Not.Null);
+            Assert.That(network.Roads.Count, Is.EqualTo(4));
+            Assert.That(network.GetComponent<MeshFilter>().sharedMesh.vertexCount, Is.GreaterThan(16));
+            Assert.That(network.GetComponent<MeshRenderer>().sharedMaterial.name, Is.EqualTo("Env_RoadCobblestone"));
         }
 
         [UnityTest]

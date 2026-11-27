@@ -1,8 +1,9 @@
 using System;
+using System.Collections;
 using System.Collections.Generic;
 using CyberWizard.Core;
+using CyberWizard.Data;
 using CyberWizard.Gameplay.Enemies;
-using CyberWizard.Gameplay.Player;
 using CyberWizard.Gameplay.Waves;
 using CyberWizard.Infrastructure;
 using CyberWizard.Presentation;
@@ -13,7 +14,8 @@ namespace CyberWizard.Gameplay.GameFlow
     /// <summary>
     /// 閘門防守關卡的流程：讀取波次資料並開始排程；閘門被打破時判定失敗，
     /// 停止生成、讓場上敵人停下，並隱藏閘門物件。
-    /// 若有設定玩家與跟隨攝影機：波次進行中啟用滑鼠視角（鎖定游標），結束後停用玩家操作並釋放游標。
+    /// 若有設定跟隨攝影機：波次開始時啟用滑鼠視角（鎖定游標）。
+    /// 勝利或失敗的瞬間把遊戲時間放慢（Time.timeScale），玩家仍可操作；元件銷毀時把 timeScale 還原為 1。
     /// 本元件不含 UI，結果透過 PhaseChanged 事件與 Console 紀錄提供。
     /// </summary>
     [DisallowMultipleComponent]
@@ -34,14 +36,15 @@ namespace CyberWizard.Gameplay.GameFlow
         [SerializeField, Tooltip("進入 Play Mode 後自動開始波次。")]
         private bool startOnPlay = true;
 
-        [SerializeField, Tooltip("可選：玩家。關卡結束（勝或敗）後停用操作。")]
-        private PrototypePlayerController player;
-
-        [SerializeField, Tooltip("可選：跟隨玩家的攝影機。波次進行中啟用滑鼠視角。")]
+        [SerializeField, Tooltip("可選：跟隨玩家的攝影機。波次開始時啟用滑鼠視角。")]
         private PrototypeCameraFollow cameraFollow;
+
+        [SerializeField, Range(0.05f, 1f), Tooltip("勝利或失敗瞬間套用的 Time.timeScale（1 表示不放慢）。")]
+        private float endTimeScale = 0.25f;
 
         private readonly List<EnemyAgent> haltBuffer = new List<EnemyAgent>();
         private bool subscribed;
+        private bool endSlowMotionApplied;
 
         public event Action<GamePhase> PhaseChanged;
 
@@ -49,19 +52,31 @@ namespace CyberWizard.Gameplay.GameFlow
 
         public string FailureReason { get; private set; } = string.Empty;
 
-        private void Start()
+        private IEnumerator Start()
         {
             if (waveDirector == null || gate == null)
             {
                 Fail("GateDefenseFlow 缺少 WaveDirector 或閘門設定。");
-                return;
+                yield break;
             }
 
-            if (!LevelScheduleLoader.TryLoadFromStreamingAssets(scheduleRelativePath, out var schedule, out var error) ||
-                !waveDirector.Initialize(schedule, out error))
+            LevelWaveScheduleDto schedule = null;
+            var error = string.Empty;
+            // 手動走訪：本地讀檔在第一次 MoveNext() 就完成，不會延後一幀；WebGL 才會等待網路請求。
+            var loading = LevelScheduleLoader.Load(scheduleRelativePath, (loaded, loadError) =>
+            {
+                schedule = loaded;
+                error = loadError;
+            });
+            while (loading.MoveNext())
+            {
+                yield return loading.Current;
+            }
+
+            if (schedule == null || !waveDirector.Initialize(schedule, out error))
             {
                 Fail(error);
-                return;
+                yield break;
             }
 
             waveDirector.AllWavesCompleted += HandleAllWavesCompleted;
@@ -124,7 +139,7 @@ namespace CyberWizard.Gameplay.GameFlow
 
             FailureReason = "黃銅閘門已被打破";
             Debug.Log($"[GateDefenseFlow] Defeat：{FailureReason}，經過 {waveDirector.ElapsedTime:0.0} 秒。", this);
-            EndPlayerControl();
+            ApplyEndSlowMotion();
             ChangePhase(GamePhase.Defeat);
         }
 
@@ -136,21 +151,31 @@ namespace CyberWizard.Gameplay.GameFlow
             }
 
             Debug.Log("[GateDefenseFlow] Victory：所有波次已清除。", this);
-            EndPlayerControl();
+            ApplyEndSlowMotion();
             ChangePhase(GamePhase.Ended);
         }
 
-        private void EndPlayerControl()
+        /// <summary>
+        /// 關卡結束（勝或敗）時放慢遊戲時間，取代原本停用玩家操作的做法。
+        /// 物理步長（fixedDeltaTime）刻意不跟著縮小：縮小步長會改變閘門碎片的物理結果；
+        /// 慢動作中的平滑度由碎片剛體的插值（GateShatterOnDestroyed）處理。
+        /// </summary>
+        private void ApplyEndSlowMotion()
         {
-            if (player != null)
+            endSlowMotionApplied = true;
+            Time.timeScale = endTimeScale;
+            Debug.Log($"[GateDefenseFlow] 關卡結束，遊戲時間放慢為 {endTimeScale:0.##} 倍。", this);
+        }
+
+        private void RestoreTimeScale()
+        {
+            if (!endSlowMotionApplied)
             {
-                player.InputEnabled = false;
+                return;
             }
 
-            if (cameraFollow != null)
-            {
-                cameraFollow.SetGameplayActive(false);
-            }
+            endSlowMotionApplied = false;
+            Time.timeScale = 1f;
         }
 
         private void Fail(string error)
@@ -168,6 +193,9 @@ namespace CyberWizard.Gameplay.GameFlow
 
         private void OnDestroy()
         {
+            // 時間設定是全域的，離開場景時必須還原，避免影響下一個場景。
+            RestoreTimeScale();
+
             if (!subscribed)
             {
                 return;
