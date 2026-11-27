@@ -75,3 +75,6 @@ Desktop.ini
 *.bak
 *.swp
 *.orig
+
+# Git worktrees
+/.work/
