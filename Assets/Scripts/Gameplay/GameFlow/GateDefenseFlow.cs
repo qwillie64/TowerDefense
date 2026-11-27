@@ -221,7 +221,6 @@ namespace CyberWizard.Gameplay.GameFlow
         private void ChangePhase(GamePhase phase)
         {
             CurrentPhase = phase;
-            PhaseChanged?.Invoke(phase);
         }
 
         private void OnDestroy()

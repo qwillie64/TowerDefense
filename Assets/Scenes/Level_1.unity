@@ -6724,6 +6724,7 @@ GameObject:
   - component: {fileID: 352894079}
   - component: {fileID: 352894078}
   - component: {fileID: 352894077}
+  - component: {fileID: 352894083}
   m_Layer: 0
   m_Name: Level1_Systems
   m_TagString: Untagged
@@ -6789,7 +6790,6 @@ MonoBehaviour:
   enemyDefinitions:
   - {fileID: 11400000, guid: 02b28711e1247c74a9981177c04521d3, type: 2}
   behaviorSettings: {fileID: 0}
-  followWaypointHeight: 1
 --- !u!4 &352894076
 Transform:
   m_ObjectHideFlags: 0
@@ -6910,6 +6910,28 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   startingBalance: 0
+--- !u!114 &352894083
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 352894072}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 5e4c761ae000d924c8537eabded3cff8, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  geometryRoot: {fileID: 1538424966}
+  includedLayers:
+    serializedVersion: 2
+    m_Bits: 4294967295
+  agentRadius: 0.5
+  agentHeight: 2
+  maxSlope: 45
+  stepHeight: 0.75
+  voxelSize: 0.25
+  tileSize: 1024
 --- !u!1 &375359669
 GameObject:
   m_ObjectHideFlags: 0

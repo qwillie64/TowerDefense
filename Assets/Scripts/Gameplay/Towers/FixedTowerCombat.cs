@@ -1,4 +1,3 @@
-using System;
 using CyberWizard.Core;
 using CyberWizard.Gameplay.Combat;
 using CyberWizard.Gameplay.Enemies;
@@ -50,9 +49,6 @@ namespace CyberWizard.Gameplay.Towers
         private FixedTower _fixedTower;
         private EnemyAgent _target;
         private float _cooldown;
-
-        /// <summary>等級、血量或存活狀態改變時觸發。</summary>
-        public event Action<FixedTowerCombat> StateChanged;
 
         public bool IsAlive => _vitality != null && _vitality.IsAlive;
         public Faction Faction => Faction.Player;
@@ -135,7 +131,6 @@ namespace CyberWizard.Gameplay.Towers
                 PrototypeMaterialRole.Player,
                 Vector3.one * 3f,
                 0.4f);
-            StateChanged?.Invoke(this);
             return true;
         }
 
@@ -271,8 +266,6 @@ namespace CyberWizard.Gameplay.Towers
             {
                 _healthBar.SetValue(current, maximum);
             }
-
-            StateChanged?.Invoke(this);
         }
 
         private void HandleDepleted()

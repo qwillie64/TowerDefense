@@ -2,6 +2,7 @@ using System;
 using CyberWizard.Core;
 using CyberWizard.Gameplay.Combat;
 using CyberWizard.Gameplay.Enemies;
+using CyberWizard.Infrastructure;
 using CyberWizard.Presentation;
 using UnityEngine;
 
@@ -20,19 +21,11 @@ namespace CyberWizard.Gameplay.Player
         private GroundRangeIndicator _rangeIndicator;
         private IDamageable _aimedTarget;
 
-        public event Action AimStateChanged;
-
-        public bool HasValidTarget => _aimedTarget != null && _aimedTarget.IsAlive;
+        private bool HasValidTarget => _aimedTarget != null && _aimedTarget.IsAlive;
 
         /// <summary>攻擊範圍內是否有存活的敵人（射程圈顯示紅色）。</summary>
         public bool HasEnemyInRange { get; private set; }
         public float AttackRange => attackRange;
-
-        public void Configure(PrototypePlayerController newPlayer, Camera newCamera)
-        {
-            player = newPlayer;
-            gameplayCamera = newCamera;
-        }
 
         private void Start()
         {
@@ -42,12 +35,7 @@ namespace CyberWizard.Gameplay.Player
         private void Update()
         {
             _cooldownRemaining = Mathf.Max(0f, _cooldownRemaining - Time.deltaTime);
-            var previousTarget = _aimedTarget;
             _aimedTarget = FindAimedTarget();
-            if (!ReferenceEquals(previousTarget, _aimedTarget))
-            {
-                AimStateChanged?.Invoke();
-            }
 
             HasEnemyInRange = player != null && player.IsAlive && AnyEnemyInRange(player.transform.position);
             if (_rangeIndicator != null)
@@ -56,7 +44,7 @@ namespace CyberWizard.Gameplay.Player
             }
 
             if (player == null || !player.InputEnabled || !player.IsAlive ||
-                !Input.GetMouseButtonDown(0) || _cooldownRemaining > 0f ||
+                !GameInput.AttackPressed || _cooldownRemaining > 0f ||
                 !HasValidTarget)
             {
                 return;
@@ -80,7 +68,7 @@ namespace CyberWizard.Gameplay.Player
 
             var pointerPosition = Cursor.lockState == CursorLockMode.Locked
                 ? new Vector3(Screen.width * 0.5f, Screen.height * 0.5f, 0f)
-                : Input.mousePosition;
+                : GameInput.PointerPosition;
             var ray = gameplayCamera.ScreenPointToRay(pointerPosition);
             var hits = Physics.RaycastAll(ray, 100f);
             Array.Sort(hits, (left, right) => left.distance.CompareTo(right.distance));

@@ -1,8 +1,10 @@
 using System.Linq;
 using CyberWizard.Gameplay.Enemies;
+using CyberWizard.Gameplay.Level;
 using CyberWizard.Infrastructure;
 using NUnit.Framework;
 using UnityEngine;
+using UnityEngine.AI;
 
 namespace CyberWizard.Tests
 {
@@ -34,29 +36,42 @@ namespace CyberWizard.Tests
         }
 
         [Test]
-        public void EnemyMovementMotor_FollowTargetHeight_ClimbsToWaypointAndStaysUpright()
+        public void LevelNavMesh_BuildsWalkableSlopeAndRoutesAroundObstacles()
         {
-            var owner = new GameObject("Climber").transform;
-            var target = new GameObject("Waypoint").transform;
+            var root = new GameObject("NavMesh Test Level");
+            var navMesh = root.AddComponent<LevelNavMesh>();
             try
             {
-                target.position = new Vector3(6f, 3f, 0f);
-                var motor = new EnemyMovementMotor(owner, 2f, true, 1f);
+                // 斜坡地面（繞 X 軸傾斜 5 度，北高南低）與一道擋在中間的牆。
+                var ground = GameObject.CreatePrimitive(PrimitiveType.Cube);
+                ground.transform.SetParent(root.transform);
+                ground.transform.localScale = new Vector3(40f, 1f, 40f);
+                ground.transform.rotation = Quaternion.Euler(-5f, 0f, 0f);
+                var wall = GameObject.CreatePrimitive(PrimitiveType.Cube);
+                wall.transform.SetParent(root.transform);
+                wall.transform.position = new Vector3(0f, 2f, 0f);
+                wall.transform.localScale = new Vector3(20f, 4f, 1f);
+                wall.transform.rotation = ground.transform.rotation;
 
-                var arrived = false;
-                for (var step = 0; step < 100 && !arrived; step++)
-                {
-                    arrived = motor.MoveTowards(target, 0.01f, 1f, 0.1f);
-                }
+                Assert.That(navMesh.Build(), Is.True);
+                Assert.That(navMesh.IsBuilt, Is.True);
 
-                Assert.That(arrived, Is.True);
-                Assert.That(Vector3.Distance(owner.position, new Vector3(6f, 4f, 0f)), Is.LessThan(0.02f));
-                Assert.That(Vector3.Angle(owner.up, Vector3.up), Is.LessThan(0.01f));
+                var south = new Vector3(0f, 0f, -12f);
+                var north = new Vector3(0f, 0f, 12f);
+                Assert.That(NavMesh.SamplePosition(south, out var start, 3f, NavMesh.AllAreas), Is.True);
+                Assert.That(NavMesh.SamplePosition(north, out var end, 3f, NavMesh.AllAreas), Is.True);
+                Assert.That(end.position.y, Is.GreaterThan(start.position.y + 1f), "北側應位於斜坡較高處。");
+
+                var path = new NavMeshPath();
+                Assert.That(NavMesh.CalculatePath(start.position, end.position, NavMesh.AllAreas, path), Is.True);
+                Assert.That(path.status, Is.EqualTo(NavMeshPathStatus.PathComplete));
+                Assert.That(path.corners.Length, Is.GreaterThan(2), "路線應繞過牆，而不是直線穿過。");
+                Assert.That(path.corners.Max(corner => Mathf.Abs(corner.x)), Is.GreaterThan(10f));
             }
             finally
             {
-                Object.DestroyImmediate(owner.gameObject);
-                Object.DestroyImmediate(target.gameObject);
+                navMesh.Clear();
+                Object.DestroyImmediate(root);
             }
         }
     }

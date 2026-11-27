@@ -7,14 +7,16 @@ using UnityEngine;
 
 namespace CyberWizard.Gameplay.Waves
 {
+    /// <summary>
+    /// 依波次資料的開始時間（絕對時間）啟動波次並生成敵人；上一波未清除不會阻擋下一波。
+    /// 所有波次都已生成且場上沒有敵人時觸發 AllWavesCompleted。
+    /// </summary>
     public sealed class WaveDirector : MonoBehaviour
     {
         private sealed class WaveRuntime
         {
             public readonly WaveDto Data;
             public bool Started;
-            public bool Completed;
-            public int PendingSpawnCount;
 
             public WaveRuntime(WaveDto data)
             {
@@ -34,10 +36,7 @@ namespace CyberWizard.Gameplay.Waves
         private int _spawnedCount;
         private float _elapsedTime;
 
-        public event Action StatsChanged;
         public event Action AllWavesCompleted;
-        public event Action<string, int> WaveBegan;
-        public event Action<string, int> WaveCleared;
         public event Action<EnemyAgent> EnemyDefeated;
 
         public float ElapsedTime => _elapsedTime;
@@ -47,23 +46,10 @@ namespace CyberWizard.Gameplay.Waves
         public int SpawnedCount => _spawnedCount;
         public int AliveCount => _aliveEnemies.Count;
         public IEnumerable<EnemyAgent> AliveEnemies => _aliveEnemies;
-        public EnemyAgent ActiveBoss { get; private set; }
 
-        public float TimeUntilNextWave
-        {
-            get
-            {
-                for (var index = 0; index < _waves.Length; index++)
-                {
-                    if (!_waves[index].Started)
-                    {
-                        return Mathf.Max(0f, _waves[index].Data.startTime - _elapsedTime);
-                    }
-                }
-
-                return 0f;
-            }
-        }
+        public float TimeUntilNextWave => TryGetUpcomingWave(out var wave)
+            ? Mathf.Max(0f, wave.startTime - _elapsedTime)
+            : 0f;
 
         /// <summary>
         /// 取得下一個尚未開始的波次（依開始時間排序）。排程被 StopSchedule 中止、
@@ -87,11 +73,6 @@ namespace CyberWizard.Gameplay.Waves
             }
 
             return false;
-        }
-
-        public void Configure(EnemySpawner newEnemySpawner)
-        {
-            enemySpawner = newEnemySpawner;
         }
 
         public bool Initialize(LevelWaveScheduleDto schedule, out string error)
@@ -148,8 +129,6 @@ namespace CyberWizard.Gameplay.Waves
             _pendingSpawnCount = 0;
             _spawnedCount = 0;
             _elapsedTime = 0f;
-            ActiveBoss = null;
-            StatsChanged?.Invoke();
             error = string.Empty;
             return true;
         }
@@ -163,7 +142,6 @@ namespace CyberWizard.Gameplay.Waves
             _completionReported = false;
             _running = true;
             _stopped = false;
-            StatsChanged?.Invoke();
         }
 
         /// <summary>
@@ -175,7 +153,6 @@ namespace CyberWizard.Gameplay.Waves
             _stopped = true;
             StopAllCoroutines();
             Debug.Log($"[WaveDirector] ScheduleStopped time={_elapsedTime:0.00}", this);
-            StatsChanged?.Invoke();
         }
 
         private void Update()
@@ -197,56 +174,40 @@ namespace CyberWizard.Gameplay.Waves
             }
 
             TryCompleteSchedule();
-            StatsChanged?.Invoke();
         }
 
         private void BeginWave(WaveRuntime wave)
         {
             wave.Started = true;
             _startedWaveCount++;
+            Debug.Log($"[WaveDirector] WaveStarted id={wave.Data.waveId} time={_elapsedTime:0.00}", this);
+
             var entries = wave.Data.enemies;
             for (var index = 0; index < entries.Length; index++)
             {
-                wave.PendingSpawnCount += entries[index].count;
-            }
-            Debug.Log($"[WaveDirector] WaveStarted id={wave.Data.waveId} time={_elapsedTime:0.00}", this);
-            WaveBegan?.Invoke(wave.Data.waveId, _startedWaveCount);
-
-            for (var index = 0; index < entries.Length; index++)
-            {
                 _pendingSpawnCount += entries[index].count;
-                StartCoroutine(SpawnEntry(wave, entries[index]));
+                StartCoroutine(SpawnEntry(wave.Data.waveId, entries[index]));
             }
         }
 
-        private IEnumerator SpawnEntry(WaveRuntime wave, EnemySpawnDto entry)
+        private IEnumerator SpawnEntry(string waveId, EnemySpawnDto entry)
         {
             for (var index = 0; index < entry.count; index++)
             {
                 var enemy = enemySpawner.Spawn(
                     entry.enemyTypeId,
-                    wave.Data.waveId,
+                    waveId,
                     entry.spawnPointId,
                     entry.pathId,
                     entry.objective);
                 _pendingSpawnCount--;
-                wave.PendingSpawnCount--;
-
                 if (enemy != null)
                 {
                     _spawnedCount++;
                     _aliveEnemies.Add(enemy);
                     enemy.Exited += HandleEnemyExited;
                     enemy.Killed += HandleEnemyKilled;
-                    if (enemy.IsBoss)
-                    {
-                        ActiveBoss = enemy;
-                        Debug.Log($"[WaveDirector] BossSpawned type={enemy.EnemyTypeId}", this);
-                    }
                 }
-
-                StatsChanged?.Invoke();
-                TryCompleteWaves();
 
                 if (index < entry.count - 1 && entry.spawnInterval > 0f)
                 {
@@ -264,14 +225,8 @@ namespace CyberWizard.Gameplay.Waves
                 enemy.Exited -= HandleEnemyExited;
                 enemy.Killed -= HandleEnemyKilled;
                 _aliveEnemies.Remove(enemy);
-                if (enemy == ActiveBoss)
-                {
-                    ActiveBoss = null;
-                }
             }
 
-            StatsChanged?.Invoke();
-            TryCompleteWaves();
             TryCompleteSchedule();
         }
 
@@ -283,37 +238,6 @@ namespace CyberWizard.Gameplay.Waves
             }
         }
 
-        private void TryCompleteWaves()
-        {
-            for (var waveIndex = 0; waveIndex < _waves.Length; waveIndex++)
-            {
-                var wave = _waves[waveIndex];
-                if (!wave.Started || wave.Completed || wave.PendingSpawnCount > 0)
-                {
-                    continue;
-                }
-
-                var hasLivingEnemy = false;
-                foreach (var enemy in _aliveEnemies)
-                {
-                    if (enemy != null && enemy.IsAlive && enemy.WaveId == wave.Data.waveId)
-                    {
-                        hasLivingEnemy = true;
-                        break;
-                    }
-                }
-
-                if (hasLivingEnemy)
-                {
-                    continue;
-                }
-
-                wave.Completed = true;
-                Debug.Log($"[WaveDirector] WaveCompleted id={wave.Data.waveId} time={_elapsedTime:0.00}", this);
-                WaveCleared?.Invoke(wave.Data.waveId, waveIndex + 1);
-            }
-        }
-
         private void TryCompleteSchedule()
         {
             if (!_running || _completionReported)
@@ -321,7 +245,6 @@ namespace CyberWizard.Gameplay.Waves
                 return;
             }
 
-            TryCompleteWaves();
             if (_startedWaveCount < _waves.Length || _pendingSpawnCount > 0 || _aliveEnemies.Count > 0)
             {
                 return;
@@ -330,7 +253,6 @@ namespace CyberWizard.Gameplay.Waves
             _completionReported = true;
             _running = false;
             Debug.Log($"[WaveDirector] AllWavesCompleted spawned={_spawnedCount} time={_elapsedTime:0.00}", this);
-            StatsChanged?.Invoke();
             AllWavesCompleted?.Invoke();
         }
 

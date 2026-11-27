@@ -1,8 +1,8 @@
-using System;
 using System.Collections;
 using CyberWizard.Core;
-using UnityEngine;
+using CyberWizard.Infrastructure;
 using CyberWizard.Presentation;
+using UnityEngine;
 
 namespace CyberWizard.Gameplay.Player
 {
@@ -23,12 +23,7 @@ namespace CyberWizard.Gameplay.Player
         private Quaternion _spawnRotation;
         private Renderer _bodyRenderer;
         private Coroutine _respawnRoutine;
-        private float _incomingDamageMultiplier = 1f;
         private float _verticalVelocity;
-
-        public event Action<float, float> HealthChanged;
-        public event Action Died;
-        public event Action Respawned;
 
         public bool IsAlive => _vitality != null && _vitality.IsAlive;
         public Faction Faction => Faction.Player;
@@ -36,7 +31,6 @@ namespace CyberWizard.Gameplay.Player
         public float CurrentHealth => _vitality != null ? _vitality.Current : 0f;
         public float MaxHealth => _vitality != null ? _vitality.Maximum : maxHealth;
         public bool InputEnabled { get; set; } = true;
-        public bool IsRespawning => _respawnRoutine != null;
 
         private void Awake()
         {
@@ -64,11 +58,7 @@ namespace CyberWizard.Gameplay.Player
                 return;
             }
 
-            var input = new Vector2(Input.GetAxisRaw("Horizontal"), Input.GetAxisRaw("Vertical"));
-            if (input.sqrMagnitude > 1f)
-            {
-                input.Normalize();
-            }
+            var input = GameInput.Move;
 
             var forward = _camera != null ? _camera.transform.forward : Vector3.forward;
             var right = _camera != null ? _camera.transform.right : Vector3.right;
@@ -83,7 +73,7 @@ namespace CyberWizard.Gameplay.Player
                 _verticalVelocity = groundedVelocity;
             }
 
-            if (_characterController.isGrounded && Input.GetKeyDown(KeyCode.Space))
+            if (_characterController.isGrounded && GameInput.JumpPressed)
             {
                 _verticalVelocity = Mathf.Sqrt(jumpHeight * -2f * gravity);
             }
@@ -101,23 +91,16 @@ namespace CyberWizard.Gameplay.Player
 
         public void TakeDamage(float amount)
         {
-            _vitality?.TakeDamage(amount * _incomingDamageMultiplier);
-        }
-
-        public void SetIncomingDamageMultiplier(float multiplier)
-        {
-            _incomingDamageMultiplier = Mathf.Clamp(multiplier, 0f, 1f);
+            _vitality?.TakeDamage(amount);
         }
 
         private void HandleVitalityChanged(float current, float maximum)
         {
             if (_healthBar != null) _healthBar.SetValue(current, maximum);
-            HealthChanged?.Invoke(current, maximum);
         }
 
         private void HandleDepleted()
         {
-            Died?.Invoke();
             if (_respawnRoutine == null)
             {
                 _respawnRoutine = StartCoroutine(RespawnAfterDelay());
@@ -152,7 +135,6 @@ namespace CyberWizard.Gameplay.Player
             }
 
             _respawnRoutine = null;
-            Respawned?.Invoke();
         }
 
         private void OnDestroy()

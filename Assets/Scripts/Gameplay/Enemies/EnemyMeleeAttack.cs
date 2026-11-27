@@ -17,8 +17,6 @@ namespace CyberWizard.Gameplay.Enemies
             _interval = Mathf.Max(0.05f, interval);
         }
 
-        public float CooldownRemaining => _cooldown;
-
         public void Tick(float deltaTime)
         {
             _cooldown = Mathf.Max(0f, _cooldown - Mathf.Max(0f, deltaTime));
@@ -56,17 +54,6 @@ namespace CyberWizard.Gameplay.Enemies
             }
 
             CombatProjectile.Spawn(origin, target, _damage, PrototypeMaterialRole.Enemy, 15f);
-            return true;
-        }
-
-        public bool AttackImmediately(IDamageable target)
-        {
-            if (target == null || !target.IsAlive)
-            {
-                return false;
-            }
-
-            target.TakeDamage(_damage);
             return true;
         }
     }
