@@ -4,6 +4,10 @@ namespace CyberWizard.Presentation
 {
     public sealed class PrototypeCameraFollow : MonoBehaviour
     {
+        private const float AnchorHeight = 1.55f;
+        private const float MinPitch = 10f;
+        private const float MaxPitch = 65f;
+
         [SerializeField] private Transform target;
         [SerializeField, Min(0.1f)] private float followSpeed = 10f;
         [SerializeField, Min(1f)] private float distance = 5.5f;
@@ -43,7 +47,27 @@ namespace CyberWizard.Presentation
             var sensitivity = mouseSensitivity * Time.timeScale;
             _yaw += Input.GetAxis("Mouse X") * sensitivity;
             _pitch -= Input.GetAxis("Mouse Y") * sensitivity;
-            _pitch = Mathf.Clamp(_pitch, 10f, 65f);
+            _pitch = Mathf.Clamp(_pitch, MinPitch, MaxPitch);
+        }
+
+        /// <summary>立即把視角轉向指定的世界座標（俯仰角仍受上下限制），不經過平滑跟隨。</summary>
+        public void LookAt(Vector3 worldPoint)
+        {
+            if (target == null)
+            {
+                return;
+            }
+
+            var direction = worldPoint - (target.position + Vector3.up * AnchorHeight);
+            if (direction.sqrMagnitude < 0.0001f)
+            {
+                return;
+            }
+
+            direction.Normalize();
+            _yaw = Mathf.Atan2(direction.x, direction.z) * Mathf.Rad2Deg;
+            _pitch = Mathf.Clamp(-Mathf.Asin(direction.y) * Mathf.Rad2Deg, MinPitch, MaxPitch);
+            ApplyCameraTransform(true);
         }
 
         public void SetGameplayActive(bool active)
@@ -64,7 +88,7 @@ namespace CyberWizard.Presentation
                 return;
             }
 
-            var anchor = target.position + Vector3.up * 1.55f;
+            var anchor = target.position + Vector3.up * AnchorHeight;
             var lookRotation = Quaternion.Euler(_pitch, _yaw, 0f);
             var desiredPosition = anchor + lookRotation *
                 new Vector3(shoulderOffset.x, shoulderOffset.y, -distance);

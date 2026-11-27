@@ -516,7 +516,7 @@ Level_1 PlayMode 測試確認了以下事項（2026-11-26 起，此測試一開�
 - 需求來源：`Ref/開發規劃4.docx`。以下四點在實作前向使用者確認：
   - 企劃射程 8 在目前地圖打不到任何路線（三座塔離路線約 21～23），改為**射程乘上可調倍率，暫定 ×3**，塔位不動。
   - 「等級 1（max 5）」指**砲塔、塔身、塔底三個部位各自 1～5 級**，各有 4 次升級。
-  - 玩家**靠近塔時**，在塔旁顯示 3D 升級提示，按 1／2／3 升級該塔。
+  - 玩家**靠近塔時**，在塔旁顯示 3D 升級提示，按 1／2／3 升級該塔。（2026-11-27 起改為「靠近且視角指向塔」，見「升級提示改為視角指向判定與塔外框」一節。）
   - 主畫面改為**移植舊場景的跟隨攝影機**，原本的全圖俯視改成**右上角小地圖**。
 - 狀態：
 
@@ -559,7 +559,7 @@ Level_1 PlayMode 測試確認了以下事項（2026-11-26 起，此測試一開�
 | --- | --- |
 | `Scripts/Gameplay/Towers/FixedTowerProfile.cs` | 塔的初始數值、射程倍率、三部位升級表與花費；計算各等級的射程、血量、攻擊、攻速與升級花費。另含 `TowerPart` 列舉（砲塔、塔身、塔底）。 |
 | `Scripts/Gameplay/Towers/FixedTowerCombat.cs` | 掛在 `Tower_05/07/09`：三部位等級、血量（`Vitality`）、血條、射程圈（2026-11-26 改為 `GroundRangeIndicator`，見「攻擊範圍改為 Raycast 投影網格」一節）；每幀從 `WaveDirector.AliveEnemies` 找射程內最近的敵人，轉動砲塔，夾角小於門檻時發射鉚釘並播放砲口火焰。`ApplyUpgrade` 只套用升級，不處理能量。 |
-| `Scripts/Gameplay/Towers/TowerUpgradeInteractor.cs` | 找出玩家附近（水平距離 12 以內）最近的塔；按 1／2／3 時先檢查是否滿級、再從 `ResourceWallet` 扣能量，成功後呼叫 `ApplyUpgrade`。每次嘗試都發出 `UpgradeAttempted` 事件。 |
+| `Scripts/Gameplay/Towers/TowerUpgradeInteractor.cs` | 找出玩家附近（水平距離 12 以內）最近的塔（2026-11-27 改為：視角 Raycast 指向、且水平距離 12 以內的塔）；按 1／2／3 時先檢查是否滿級、再從 `ResourceWallet` 扣能量，成功後呼叫 `ApplyUpgrade`。每次嘗試都發出 `UpgradeAttempted` 事件。 |
 | `Scripts/Gameplay/Combat/RivetProjectile.cs` | 鉚釘：圓錐尖端朝飛行方向，追蹤目標直到命中造成傷害；目標中途消失時沿原方向飛到 4 秒後回收。 |
 | `Scripts/Presentation/ConeMesh.cs` | 產生圓錐網格（尖端朝 +Z），整個執行期間共用一份。 |
 | `Scripts/Presentation/ChevronStrip.cs` | 純計算：沿折線每隔固定距離放一個「>」箭頭，高度沿折線內插。 |
@@ -675,11 +675,11 @@ Level1_Systems         # 新增元件：ResourceWallet、RewardService、Prototy
 - **操作**：
   - WASD 移動（依攝影機方向）、空白鍵跳躍。
   - 滑鼠左鍵攻擊準星對準、且距離 3 以內的敵人（2026-11-26 放大為 4.5，之後再提升 1 倍為 9）。
-  - 靠近塔時按 1 升級砲塔、2 升級塔身、3 升級塔底。
+  - 靠近塔時按 1 升級砲塔、2 升級塔身、3 升級塔底。（2026-11-27 起還需準星指向該塔。）
 - **地面路標**：關卡開始時，兩條路線上鋪滿紅色半透明「>」箭頭，指向敵人前進方向，一路延伸到閘門前；小地圖上也看得到。
 - **出生點**：地圖左下角持續冒出大片灰色煙霧，敵人從煙霧中出現。
 - **塔**：敵人進入射程後，砲塔轉向敵人，發射淺灰色金屬圓錐（鉚釘），砲口有短暫的黃橘色火焰。塔頂有藍色血條。
-- **升級提示**：玩家走到塔附近時：
+- **升級提示**：玩家走到塔附近時（2026-11-27 起還需準星指向該塔，被指向的塔同時顯示外框）：
   - 塔的左側或右側（選靠近畫面中央的一側）出現深色半透明面板，列出三個部位的等級、升級後數值與花費。
   - 能量不足的花費顯示為紅色，足夠時為黃色；按鍵失敗時該行會短暫顯示「能量不足」或「已滿級」。
   - 地面同時顯示該塔的射程圈，HUD 也會顯示「可升級：N號塔」。（2026-11-26 起射程圈為貼地環帶，射程內有敵人時為紅色、沒有時為白色；之後又改為不論玩家遠近都持續顯示。）
@@ -1423,3 +1423,85 @@ Unity 編輯器開著，所以把 `Assets`、`Packages`、`ProjectSettings` 複�
 | EditMode 測試 | **28 項全數通過**（新增 7 項：`RoadMeshBuilderTests` 4 項、`LevelScheduleLoaderEditModeTests` 3 項）。 |
 | PlayMode 測試 | **10 項中 8 項通過**（新增 3 項，皆通過）。失敗的 2 項與前幾節相同：`Towers_AimFireRivetsKillEnemiesAndGrantEnergy`、`Upgrade_PlayerNearTowerUpgradesEachPartWithEnergy`，原因是 `FixedTowerProfile.asset` 的攻擊力為 20，但測試寫死 10，與本次修改無關。 |
 | 暫時檔案 | 截圖工具、場景修改腳本、WebGL 編譯檢查腳本與截圖測試都已刪除（含 `.meta`）。 |
+
+---
+
+## 升級提示改為視角指向判定與塔外框
+
+- 紀錄日期：2026-11-27
+- 狀態：**已完成**（實際遊玩手感**尚未驗證**）。
+
+### 功能目的
+
+原本玩家只要走到塔的 12 單位內，就會出現升級提示並可按 1／2／3 升級；附近有多座塔時無法自行選擇。改為**靠近且準星（畫面中央）指向該塔**才算選取，並在被選取的塔顯示外框，讓玩家清楚知道升級鍵會作用在哪一座塔。
+
+### 使用技術
+
+- `Camera.ViewportPointToRay(0.5, 0.5)` + `Physics.RaycastNonAlloc`（預先配置 16 格緩衝，`QueryTriggerInteraction.Ignore`）。
+- 自訂 URP Shader `CyberWizard/TowerOutline`（HLSL，`SRPDefaultUnlit` pass）：反向外殼（inverted hull）外框，`Cull Front`，頂點沿法線在螢幕空間外推固定像素。
+- 自訂 URP Shader `CyberWizard/TowerOutlineMask`：Stencil 遮罩（`ColorMask 0`、`Stencil Comp Always / Pass Replace`），外殼以 `Stencil Comp NotEqual` 排除塔本身的像素，只留整座塔的外輪廓。兩者的先後由渲染佇列（`Geometry+5` → `Geometry+10`）決定。
+- 平滑法線：執行期複製網格，把同一位置頂點的平均法線寫入 UV3（`Mesh.SetUVs(3, …)`）。
+- **沒有新增外部套件，也沒有修改 URP Renderer 設定。**
+
+### 實作方式
+
+| 檔案 | 修改 |
+| --- | --- |
+| `Assets/Scripts/Gameplay/Towers/TowerUpgradeInteractor.cs` | `FindNearbyTower`（找最近的塔）→ `FindTargetTower`：從攝影機沿畫面中央 Raycast，取最近的有效擊中點；略過觸發器、玩家自己的碰撞體與敵人（避免敵人經過時提示閃爍）。最近擊中物必須屬於 `towers` 清單中的塔，且該塔與玩家水平距離 ≤ `interactionRadius`，才設為 `CurrentTower`。被牆或建築擋住時不算指向。新增欄位 `viewCamera`、`aimRayDistance`、`aimLayers`。 |
+| `Assets/Scripts/Presentation/TowerOutlineHighlighter.cs`（新增） | 讀取 `interactor.CurrentTower`，選取改變時切換外框。塔第一次被選取時，為 `FixedTower` 的基座、塔身、砲管各建立子物件 `Selection Outline`（MeshFilter + MeshRenderer，無碰撞體、不投影），材質為 `{遮罩, 外殼}` 兩個（網格只有一個子網格，第二個材質會再畫一次同一網格），之後只切換 `SetActive`。外框網格副本在元件銷毀時一併銷毀。 |
+| `Assets/Shaders/TowerOutline.shader`（新增） | 外殼只畫背面，物件本身的正面會擋住外殼，只留下輪廓外一圈純色；寬度以像素計，不隨距離變化。UV3 為零（網格不可讀取時）退回使用網格法線。只畫在 Stencil 不等於 `_StencilRef` 的像素。 |
+| `Assets/Shaders/TowerOutlineMask.shader`（新增） | 以原網格（不外推）在佇列 `Geometry+5` 畫一次，不輸出顏色、不寫深度，把塔看得到的像素在 Stencil 設為 `_StencilRef`；`Offset -1, -1` 避免與塔本身深度相等時判定失敗。 |
+| `Assets/Materials/Level1Fx/Fx_TowerOutline.mat`（新增） | 外框材質：黃色 `(1, 0.84, 0.37)`、寬度 4 像素、Stencil 參考值 1。 |
+| `Assets/Materials/Level1Fx/Fx_TowerOutlineMask.mat`（新增） | 外框遮罩材質：Stencil 參考值 1（需與外框材質相同）。 |
+| `Assets/Scripts/Gameplay/Level/FixedTower.cs` | 新增唯讀屬性 `BaseVisual`、`BodyVisual`、`BarrelVisual`，供外框找到幾何物件。 |
+| `Assets/Scripts/Presentation/PrototypeCameraFollow.cs` | 新增 `LookAt(Vector3)`：立即把視角轉向指定點（俯仰仍限制在 10°～65°），目前供測試使用；錨點高度與俯仰上下限改為常數，數值不變。 |
+| `Assets/Scenes/Level_1.unity` | `Level1_Systems` 的 `TowerUpgradeInteractor` 指定 `viewCamera` 為 Main Camera；`TowerUpgradePrompt` 物件加上 `TowerOutlineHighlighter`（指定 interactor、外框材質與外框遮罩材質）。 |
+
+- **平滑法線的縮放處理**：基座是被壓扁的圓柱（縮放 8×0.5×8），若在物件空間直接平均法線，邊緣的平均法線經過縮放後幾乎朝上下，側面外框會消失。因此先把法線換到世界空間（`(M⁻¹)ᵀ`）再平均，存回時乘 `Mᵀ`，讓 Shader 的 `TransformObjectToWorldNormal` 還原出世界空間的平均方向。旋轉在此計算中互相抵銷，砲塔轉動不影響結果。
+- 資料流：`TowerUpgradeInteractor.CurrentTower` → `TowerUpgradePrompt`（面板）、`TowerOutlineHighlighter`（外框）、`GateDefenseHud`（「可升級」文字）。升級按鍵仍只作用在 `CurrentTower`。
+
+### 可調整參數
+
+| 物件／元件 | 參數 | 用途 |
+| --- | --- | --- |
+| `TowerUpgradeInteractor` | `interactionRadius` | 玩家與塔中心的最大水平距離，維持 12（暫定）。 |
+| `TowerUpgradeInteractor` | `viewCamera` | Raycast 來源攝影機；未設定時用 `Camera.main`。 |
+| `TowerUpgradeInteractor` | `aimRayDistance` | 從攝影機算起的 Raycast 最大距離，預設 60（暫定）。 |
+| `TowerUpgradeInteractor` | `aimLayers` | Raycast 檢查的圖層，預設同 `Physics.DefaultRaycastLayers`。 |
+| `Fx_TowerOutline.mat` | `_OutlineColor`、`_OutlineWidth` | 外框顏色與寬度（像素，0～16）。 |
+| `Fx_TowerOutline.mat`、`Fx_TowerOutlineMask.mat` | `_StencilRef` | Stencil 參考值，預設 1，兩個材質必須相同；若之後有其他效果使用 Stencil，需避開此值。 |
+
+### 遊戲呈現
+
+- 玩家走到塔 12 單位內，**且準星對準塔身、基座或砲管**時：整座塔（基座、塔身、砲管合起來）的外輪廓出現黃色外框，部位交界處沒有內部線條；旁邊出現升級面板、HUD 顯示「可升級：N號塔」，此時按 1／2／3 升級該塔。
+- 準星移開、被牆擋住或玩家走遠時，外框與面板一起消失。
+- 準星對準的塔在 12 單位外時不會選取。
+
+### 限制與待改善事項
+
+- 外框有深度測試，被其他物件擋住的部分不會顯示（不是透視外框）；基座貼地的下緣因外殼埋進地面，也不會顯示外框。若需要穿牆可見的外框，需改用螢幕空間後製（Renderer Feature）。
+- 塔的某部位被其他物件擋住時，該處不會寫入 Stencil，外殼可能在遮擋物與塔的交界處露出短線（**尚未驗證**實際是否明顯）。
+- 依賴 Stencil 緩衝：目前 URP 為 Forward 且沒有其他效果使用 Stencil；若改為 Deferred 或加入使用 Stencil 的效果，需重新確認參考值不衝突。
+- 外殼寬度在螢幕空間固定像素，物件非常小或很遠時外框相對較粗；目前選取距離有限，影響不大。
+- 只有基座、塔身、砲管有外框；塔號文字標籤、血條、射程圈沒有。
+- 敵人不阻擋視線；其他非觸發碰撞體（牆、建築、地面、玩家以外的角色）會阻擋。
+- 塔被摧毀後仍可被選取（顯示外框，升級回傳 `TowerDestroyed`），與修改前的選取規則一致。
+- 用滑鼠實際轉動視角時的選取手感（例如塔很大時是否太容易選到、站在平台下方時能否對準）**尚未驗證**。
+
+### 驗證方式
+
+以 Unity 2022.3.62f3 批次模式在本工作目錄執行（首次匯入重建 Library）。
+
+| 項目 | 結果 |
+| --- | --- |
+| 腳本編譯 | 通過，沒有錯誤或警告。 |
+| EditMode 測試 | 28 項全數通過。 |
+| PlayMode：`Upgrade_RequiresAimingAtNearbyTowerAndShowsOutline`（新增） | 通過：距離 30 時指向塔不選取；距離 8 但視角轉開不選取、提示與外框不顯示；指向 5 號塔時選取、提示顯示、外框顯示且只有 5 號塔有外框，3 個外框物件的材質依序為 `TowerOutlineMask`、`TowerOutline`（遮罩佇列較早）、沒有碰撞體、UV3 有平滑法線；再轉開後全部消失。 |
+| PlayMode：`Upgrade_PlayerNearTowerUpgradesEachPartWithEnergy`（修改：改用 `LookAt` 對準塔，並加入外框檢查） | 視角指向、提示與外框的檢查都通過；之後在第 218 行「攻擊力 14」失敗（實際 24），與上一輪相同，是 `FixedTowerProfile.asset` 攻擊力 20 與測試寫死 10 不一致，與本次修改無關，後段斷言未執行。 |
+| PlayMode 全部 | 11 項中 9 項通過；失敗的 2 項為上述攻擊力不一致（另一項是 `Towers_AimFireRivetsKillEnemiesAndGrantEnergy`），與上一輪相同。 |
+| 實際渲染 | 以暫時的 PlayMode 截圖測試（Direct3D11，非 `-nographics`）確認：兩個 Shader 都可用（`isSupported = true`，佇列 2005／2010）；指向 5 號塔時整座塔外輪廓（含伸出塔身的砲管）出現黃色外框，基座／塔身、塔身／砲管交界處沒有內部線條，旁邊顯示升級面板；視角轉開時外框與面板都消失。截圖測試已刪除。 |
+| 實際用滑鼠遊玩 | **尚未驗證** |
+
+### 修改紀錄
+
+- 2026-11-27：外框改為整體輪廓。修改前：每個部位（基座、塔身、砲管）的外殼只會被自己的網格與深度擋住，部位交界處會多出一圈線。修改後：新增 `TowerOutlineMask` Shader 與 `Fx_TowerOutlineMask.mat`，外框物件先畫 Stencil 遮罩再畫外殼，外殼壓在塔任何部位上都不顯示，只留整座塔的外輪廓。`TowerOutlineHighlighter` 新增 `outlineMaskMaterial` 欄位，場景已指定。

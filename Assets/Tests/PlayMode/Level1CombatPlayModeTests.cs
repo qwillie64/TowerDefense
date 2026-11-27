@@ -169,11 +169,15 @@ namespace CyberWizard.Tests
 
             var interactor = Object.FindObjectOfType<TowerUpgradeInteractor>();
             var prompt = Object.FindObjectOfType<TowerUpgradePrompt>();
+            var highlighter = Object.FindObjectOfType<TowerOutlineHighlighter>();
+            var cameraFollow = Object.FindObjectOfType<PrototypeCameraFollow>();
             var wallet = Object.FindObjectOfType<ResourceWallet>();
             var player = Object.FindObjectOfType<PrototypePlayerController>();
             var tower = Object.FindObjectsOfType<FixedTowerCombat>().Single(item => item.TowerNumber == 5);
             Assert.That(interactor, Is.Not.Null);
             Assert.That(prompt, Is.Not.Null);
+            Assert.That(highlighter, Is.Not.Null);
+            Assert.That(cameraFollow, Is.Not.Null);
 
             // 玩家在閘門前時不在任何塔的升級範圍內。
             interactor.RefreshCurrentTower();
@@ -181,13 +185,25 @@ namespace CyberWizard.Tests
             yield return null;
             Assert.That(prompt.IsVisible, Is.False);
 
+            // 靠近但視角沒有指向塔：不選取、不顯示提示與外框。
             Teleport(player, tower.transform.position + new Vector3(8f, 1.5f, 0f));
+            cameraFollow.LookAt(player.transform.position + new Vector3(0f, 0f, 10f));
+            interactor.RefreshCurrentTower();
+            Assert.That(interactor.CurrentTower, Is.Null, "視角沒有指向塔時不應選取。");
+            yield return null;
+            Assert.That(prompt.IsVisible, Is.False);
+            Assert.That(highlighter.IsOutlineVisible(tower), Is.False);
+
+            // 靠近且視角指向塔：顯示提示與外框。
+            cameraFollow.LookAt(tower.transform.position + Vector3.up * 4f);
             interactor.RefreshCurrentTower();
             Assert.That(interactor.CurrentTower, Is.SameAs(tower));
             yield return null;
             Assert.That(prompt.IsVisible, Is.True);
             Assert.That(prompt.ShownTower, Is.SameAs(tower));
             Assert.That(prompt.CurrentText, Does.Contain("5號塔"));
+            Assert.That(highlighter.HighlightedTower, Is.SameAs(tower));
+            Assert.That(highlighter.IsOutlineVisible(tower), Is.True, "被指向的塔應顯示外框。");
             Assert.That(tower.transform.Find("Attack Range Circle").gameObject.activeSelf, Is.True);
 
             // 能量不足。
@@ -236,7 +252,78 @@ namespace CyberWizard.Tests
             yield return null;
             Assert.That(interactor.CurrentTower, Is.Null);
             Assert.That(prompt.IsVisible, Is.False);
+            Assert.That(highlighter.IsOutlineVisible(tower), Is.False, "離開後外框應消失。");
             Assert.That(tower.transform.Find("Attack Range Circle").gameObject.activeSelf, Is.True, "射程圈持續顯示，玩家離開後仍在。");
+        }
+
+        [UnityTest]
+        public IEnumerator Upgrade_RequiresAimingAtNearbyTowerAndShowsOutline()
+        {
+            yield return LoadLevel();
+
+            var interactor = Object.FindObjectOfType<TowerUpgradeInteractor>();
+            var prompt = Object.FindObjectOfType<TowerUpgradePrompt>();
+            var highlighter = Object.FindObjectOfType<TowerOutlineHighlighter>();
+            var cameraFollow = Object.FindObjectOfType<PrototypeCameraFollow>();
+            var player = Object.FindObjectOfType<PrototypePlayerController>();
+            var tower = Object.FindObjectsOfType<FixedTowerCombat>().Single(item => item.TowerNumber == 5);
+            Assert.That(highlighter, Is.Not.Null, "場景應有 TowerOutlineHighlighter。");
+            Assert.That(cameraFollow, Is.Not.Null);
+
+            // 遠處（水平距離 30）即使視角指向塔也不選取。
+            Teleport(player, tower.transform.position + new Vector3(30f, 1.5f, 0f));
+            cameraFollow.LookAt(tower.transform.position + Vector3.up * 4f);
+            interactor.RefreshCurrentTower();
+            Assert.That(interactor.CurrentTower, Is.Null, "超出升級範圍時不應選取。");
+
+            // 靠近但視角轉開：不選取。
+            Teleport(player, tower.transform.position + new Vector3(8f, 1.5f, 0f));
+            cameraFollow.LookAt(player.transform.position + new Vector3(0f, 0f, 10f));
+            interactor.RefreshCurrentTower();
+            Assert.That(interactor.CurrentTower, Is.Null, "視角沒有指向塔時不應選取。");
+            yield return null;
+            Assert.That(prompt.IsVisible, Is.False);
+            Assert.That(highlighter.IsOutlineVisible(tower), Is.False);
+
+            // 靠近且視角指向塔：提示與外框出現，外框掛在基座、塔身、砲管底下。
+            cameraFollow.LookAt(tower.transform.position + Vector3.up * 4f);
+            interactor.RefreshCurrentTower();
+            Assert.That(interactor.CurrentTower, Is.SameAs(tower));
+            yield return null;
+            Assert.That(prompt.IsVisible, Is.True);
+            Assert.That(highlighter.HighlightedTower, Is.SameAs(tower));
+            Assert.That(highlighter.IsOutlineVisible(tower), Is.True);
+            var outlines = tower.GetComponentsInChildren<MeshRenderer>()
+                .Where(renderer => renderer.name == "Selection Outline")
+                .ToArray();
+            Assert.That(outlines.Length, Is.EqualTo(3), "基座、塔身、砲管各一個外框。");
+            Assert.That(
+                outlines.All(renderer => renderer.sharedMaterials.Select(material => material.shader.name)
+                    .SequenceEqual(new[] { "CyberWizard/TowerOutlineMask", "CyberWizard/TowerOutline" })),
+                Is.True,
+                "外框物件應先畫 Stencil 遮罩、再畫外殼。");
+            Assert.That(
+                outlines[0].sharedMaterials[0].renderQueue,
+                Is.LessThan(outlines[0].sharedMaterials[1].renderQueue),
+                "遮罩的渲染佇列必須早於外殼。");
+            Assert.That(outlines.All(renderer => renderer.GetComponent<Collider>() == null), Is.True, "外框不應有碰撞體。");
+            var smoothNormals = new List<Vector3>();
+            outlines[0].GetComponent<MeshFilter>().sharedMesh.GetUVs(3, smoothNormals);
+            Assert.That(smoothNormals.Count, Is.GreaterThan(0), "外框網格應在 UV3 寫入平滑法線。");
+
+            // 其他塔沒有外框。
+            foreach (var other in Object.FindObjectsOfType<FixedTowerCombat>().Where(item => item != tower))
+            {
+                Assert.That(highlighter.IsOutlineVisible(other), Is.False);
+            }
+
+            // 視角再轉開：提示與外框消失。
+            cameraFollow.LookAt(player.transform.position + new Vector3(0f, 0f, 10f));
+            interactor.RefreshCurrentTower();
+            yield return null;
+            Assert.That(interactor.CurrentTower, Is.Null);
+            Assert.That(prompt.IsVisible, Is.False);
+            Assert.That(highlighter.IsOutlineVisible(tower), Is.False);
         }
 
         [UnityTest]
