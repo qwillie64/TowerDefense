@@ -33,6 +33,8 @@
 | 波次 | `Assets/StreamingAssets/Levels/level1_rust_alley.json` |
 | 敵人數值 | `Assets/Data/Enemies/*.asset` |
 | 塔數值與升級表 | `Assets/Data/Towers/FixedTowerProfile.asset` |
+| 敵人 NavMesh（執行時烘焙） | 場景 `Level1_Systems` 的 `LevelNavMesh` 元件 |
+| 按鍵配置 | `Assets/Scripts/Infrastructure/GameInput.cs` |
 | 後製（Bloom） | `Assets/Settings/Level1PostProcess.asset` |
 | 程式碼 | `Assets/Scripts/`（組件 `CyberWizard.Runtime`） |
 | 測試 | `Assets/Tests/EditMode`、`Assets/Tests/PlayMode` |

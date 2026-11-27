@@ -1,6 +1,7 @@
 using System;
 using CyberWizard.Gameplay.Player;
 using CyberWizard.Gameplay.Resources;
+using CyberWizard.Infrastructure;
 using UnityEngine;
 
 namespace CyberWizard.Gameplay.Towers
@@ -44,17 +45,14 @@ namespace CyberWizard.Gameplay.Towers
                 return;
             }
 
-            if (Input.GetKeyDown(KeyCode.Alpha1) || Input.GetKeyDown(KeyCode.Keypad1))
+            // 升級鍵的順序對應 TowerPart 的數值：1 = 砲塔、2 = 塔身、3 = 塔底。
+            for (var slot = 0; slot < GameInput.UpgradeSlotCount; slot++)
             {
-                TryUpgrade(TowerPart.Turret);
-            }
-            else if (Input.GetKeyDown(KeyCode.Alpha2) || Input.GetKeyDown(KeyCode.Keypad2))
-            {
-                TryUpgrade(TowerPart.Body);
-            }
-            else if (Input.GetKeyDown(KeyCode.Alpha3) || Input.GetKeyDown(KeyCode.Keypad3))
-            {
-                TryUpgrade(TowerPart.Base);
+                if (GameInput.UpgradeSlotPressed(slot))
+                {
+                    TryUpgrade((TowerPart)slot);
+                    break;
+                }
             }
         }
 

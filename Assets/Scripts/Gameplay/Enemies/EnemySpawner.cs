@@ -1,9 +1,10 @@
+using System;
 using System.Collections.Generic;
-using UnityEngine;
+using CyberWizard.Data;
 using CyberWizard.Gameplay.GameFlow;
 using CyberWizard.Gameplay.Player;
 using CyberWizard.Presentation;
-using CyberWizard.Data;
+using UnityEngine;
 
 namespace CyberWizard.Gameplay.Enemies
 {
@@ -13,37 +14,15 @@ namespace CyberWizard.Gameplay.Enemies
         [SerializeField] private string spawnPointId = "spawn_a";
         [SerializeField] private Transform secondarySpawnPoint;
         [SerializeField] private string secondarySpawnPointId = "spawn_b";
-        [SerializeField] private Transform destination;
+        [SerializeField, Tooltip("波次資料沒有指定道路時，敵人直接走向此點。")]
+        private Transform destination;
         [SerializeField] private EnemyPath[] paths;
         [SerializeField] private PrototypePlayerController player;
         [SerializeField] private BaseCore baseCore;
         [SerializeField] private EnemyDefinition[] enemyDefinitions;
         [SerializeField] private EnemyBehaviorSettings behaviorSettings;
 
-        [SerializeField, Tooltip("開啟時敵人沿路徑點的高度移動（可爬坡、走斜坡），不套用重力；路徑點需放在地表上。")]
-        private bool followWaypointHeight;
-
         private int _spawnSequence;
-
-        public void Configure(
-            Transform newSpawnPoint,
-            Transform newDestination,
-            PrototypePlayerController newPlayer = null,
-            BaseCore newBaseCore = null,
-            EnemyDefinition[] newEnemyDefinitions = null,
-            EnemyBehaviorSettings newBehaviorSettings = null,
-            Transform newSecondarySpawnPoint = null,
-            EnemyPath[] newPaths = null)
-        {
-            spawnPoint = newSpawnPoint;
-            destination = newDestination;
-            player = newPlayer;
-            baseCore = newBaseCore;
-            enemyDefinitions = newEnemyDefinitions;
-            behaviorSettings = newBehaviorSettings;
-            secondarySpawnPoint = newSecondarySpawnPoint;
-            paths = newPaths;
-        }
 
         public bool HasDefinition(string enemyTypeId) => FindDefinition(enemyTypeId) != null;
 
@@ -90,20 +69,13 @@ namespace CyberWizard.Gameplay.Enemies
             }
 
             points.Add(ResolveSpawnPoint(requestedSpawnPointId).position);
-            var waypoints = ResolvePath(requestedPathId);
-            if (waypoints != null)
+            var route = ResolveRoute(requestedPathId);
+            for (var index = 0; index < route.Length; index++)
             {
-                for (var index = 0; index < waypoints.Length; index++)
+                if (route[index] != null)
                 {
-                    if (waypoints[index] != null)
-                    {
-                        points.Add(waypoints[index].position);
-                    }
+                    points.Add(route[index].position);
                 }
-            }
-            else if (destination != null)
-            {
-                points.Add(destination.position);
             }
 
             return points.Count >= 2;
@@ -154,35 +126,29 @@ namespace CyberWizard.Gameplay.Enemies
             agent.Initialize(
                 definition,
                 waveId,
-                destination,
+                ResolveRoute(requestedPathId),
                 player,
                 baseCore,
                 behaviorSettings,
-                ResolvePath(requestedPathId),
-                objective,
-                followWaypointHeight);
-            Debug.Log(
-                $"[EnemySpawner] Spawn type={enemyTypeId} wave={waveId} point={requestedSpawnPointId}",
-                this);
+                string.Equals(objective, EnemyAgent.SiegeObjective, StringComparison.OrdinalIgnoreCase));
             return agent;
         }
 
-        private Transform[] ResolvePath(string requestedPathId)
+        /// <summary>敵人要依序走過的點：指定道路的路徑點；沒有指定道路時只有終點。</summary>
+        private Transform[] ResolveRoute(string requestedPathId)
         {
-            if (string.IsNullOrWhiteSpace(requestedPathId) || paths == null)
+            if (!string.IsNullOrWhiteSpace(requestedPathId) && paths != null)
             {
-                return null;
-            }
-
-            for (var index = 0; index < paths.Length; index++)
-            {
-                if (paths[index] != null && paths[index].PathId == requestedPathId)
+                for (var index = 0; index < paths.Length; index++)
                 {
-                    return paths[index].Waypoints;
+                    if (paths[index] != null && paths[index].PathId == requestedPathId)
+                    {
+                        return paths[index].Waypoints ?? Array.Empty<Transform>();
+                    }
                 }
             }
 
-            return null;
+            return destination != null ? new[] { destination } : Array.Empty<Transform>();
         }
 
         private Transform ResolveSpawnPoint(string requestedSpawnPointId)

@@ -1,4 +1,3 @@
-using System;
 using UnityEngine;
 
 namespace CyberWizard.Gameplay.Resources
@@ -7,15 +6,7 @@ namespace CyberWizard.Gameplay.Resources
     {
         [SerializeField, Min(0)] private int startingBalance = 100;
 
-        public event Action<int> Changed;
-
         public int Balance { get; private set; }
-
-        public void Configure(int initialBalance)
-        {
-            startingBalance = Mathf.Max(0, initialBalance);
-            Balance = startingBalance;
-        }
 
         private void Awake()
         {
@@ -35,7 +26,6 @@ namespace CyberWizard.Gameplay.Resources
             }
 
             Balance -= amount;
-            Changed?.Invoke(Balance);
             return true;
         }
 
@@ -47,7 +37,6 @@ namespace CyberWizard.Gameplay.Resources
             }
 
             Balance += amount;
-            Changed?.Invoke(Balance);
         }
     }
 }

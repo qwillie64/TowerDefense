@@ -42,18 +42,6 @@ namespace CyberWizard.Core
             return true;
         }
 
-        public bool Restore(float amount)
-        {
-            if (amount <= 0f || Current >= Maximum)
-            {
-                return false;
-            }
-
-            Current = Mathf.Min(Maximum, Current + amount);
-            Changed?.Invoke(Current, Maximum);
-            return true;
-        }
-
         public bool IncreaseMaximum(float amount, bool restoreAddedAmount = true)
         {
             if (amount <= 0f)

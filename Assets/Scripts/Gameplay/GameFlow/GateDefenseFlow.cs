@@ -16,7 +16,7 @@ namespace CyberWizard.Gameplay.GameFlow
     /// 停止生成、讓場上敵人停下，並隱藏閘門物件。
     /// 若有設定跟隨攝影機：波次開始時啟用滑鼠視角（鎖定游標）。
     /// 勝利或失敗的瞬間把遊戲時間放慢（Time.timeScale），玩家仍可操作；元件銷毀時把 timeScale 還原為 1。
-    /// 本元件不含 UI，結果透過 PhaseChanged 事件與 Console 紀錄提供。
+    /// 本元件不含 UI，結果透過 CurrentPhase 與 Console 紀錄提供。
     /// </summary>
     [DisallowMultipleComponent]
     public sealed class GateDefenseFlow : MonoBehaviour
@@ -45,8 +45,6 @@ namespace CyberWizard.Gameplay.GameFlow
         private readonly List<EnemyAgent> haltBuffer = new List<EnemyAgent>();
         private bool subscribed;
         private bool endSlowMotionApplied;
-
-        public event Action<GamePhase> PhaseChanged;
 
         public GamePhase CurrentPhase { get; private set; } = GamePhase.Starting;
 
@@ -188,7 +186,6 @@ namespace CyberWizard.Gameplay.GameFlow
         private void ChangePhase(GamePhase phase)
         {
             CurrentPhase = phase;
-            PhaseChanged?.Invoke(phase);
         }
 
         private void OnDestroy()

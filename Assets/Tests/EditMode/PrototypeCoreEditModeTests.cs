@@ -26,7 +26,8 @@ namespace CyberWizard.Tests
             try
             {
                 var wallet = gameObject.AddComponent<ResourceWallet>();
-                wallet.Configure(20);
+                // EditMode 不會呼叫 Awake，餘額從 0 開始。
+                wallet.Add(20);
 
                 Assert.That(wallet.TrySpend(25), Is.False);
                 Assert.That(wallet.Balance, Is.EqualTo(20));
@@ -40,7 +41,7 @@ namespace CyberWizard.Tests
         }
 
         [Test]
-        public void Vitality_DamageRestoreAndDepletionAreConsistent()
+        public void Vitality_DamageAndDepletionAreConsistent()
         {
             var gameObject = new GameObject("Vitality Test");
             try
@@ -52,8 +53,6 @@ namespace CyberWizard.Tests
 
                 Assert.That(vitality.TakeDamage(35f), Is.True);
                 Assert.That(vitality.Current, Is.EqualTo(65f));
-                Assert.That(vitality.Restore(20f), Is.True);
-                Assert.That(vitality.Current, Is.EqualTo(85f));
                 Assert.That(vitality.TakeDamage(200f), Is.True);
                 Assert.That(vitality.Current, Is.Zero);
                 Assert.That(vitality.IsAlive, Is.False);
@@ -97,30 +96,6 @@ namespace CyberWizard.Tests
             attack.Tick(0.5f);
             Assert.That(attack.TryAttack(target), Is.True);
             Assert.That(target.Health, Is.EqualTo(80f));
-        }
-
-        [Test]
-        public void EnemyMovementMotor_MovesWithoutOvershootAndReportsArrival()
-        {
-            var owner = new GameObject("Movement Owner");
-            var target = new GameObject("Movement Target");
-            try
-            {
-                owner.transform.position = Vector3.zero;
-                target.transform.position = new Vector3(2f, 3f, 0f);
-                var motor = new EnemyMovementMotor(owner.transform, 2f);
-
-                Assert.That(motor.MoveTowards(target.transform, 0.1f, 1f, 0.5f), Is.False);
-                Assert.That(owner.transform.position, Is.EqualTo(new Vector3(1f, 0f, 0f)));
-                Assert.That(motor.MoveTowards(target.transform, 0.1f, 1f, 0.5f), Is.False);
-                Assert.That(owner.transform.position, Is.EqualTo(new Vector3(2f, 0f, 0f)));
-                Assert.That(motor.MoveTowards(target.transform, 0.1f, 1f, 0.5f), Is.True);
-            }
-            finally
-            {
-                Object.DestroyImmediate(owner);
-                Object.DestroyImmediate(target);
-            }
         }
     }
 }

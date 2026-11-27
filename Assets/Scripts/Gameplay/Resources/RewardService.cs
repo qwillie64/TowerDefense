@@ -9,12 +9,6 @@ namespace CyberWizard.Gameplay.Resources
         [SerializeField] private ResourceWallet wallet;
         [SerializeField] private WaveDirector waveDirector;
 
-        public void Configure(ResourceWallet newWallet, WaveDirector newWaveDirector)
-        {
-            wallet = newWallet;
-            waveDirector = newWaveDirector;
-        }
-
         private void Start()
         {
             if (waveDirector != null)
@@ -31,7 +25,6 @@ namespace CyberWizard.Gameplay.Resources
             }
 
             wallet.Add(enemy.Reward);
-            Debug.Log($"[RewardService] Enemy={enemy.EnemyTypeId} Reward={enemy.Reward} Balance={wallet.Balance}", this);
         }
 
         private void OnDestroy()

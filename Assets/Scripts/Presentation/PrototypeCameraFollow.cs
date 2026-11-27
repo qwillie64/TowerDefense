@@ -1,3 +1,4 @@
+using CyberWizard.Infrastructure;
 using UnityEngine;
 
 namespace CyberWizard.Presentation
@@ -15,11 +16,6 @@ namespace CyberWizard.Presentation
         private bool _gameplayActive;
 
         public bool GameplayActive => _gameplayActive;
-
-        public void Configure(Transform newTarget)
-        {
-            target = newTarget;
-        }
 
         private void Start()
         {
@@ -41,8 +37,9 @@ namespace CyberWizard.Presentation
 
             // 滑鼠位移本身與時間無關，乘上 timeScale 讓視角轉動跟著遊戲時間變慢（例如關卡結束的慢動作）。
             var sensitivity = mouseSensitivity * Time.timeScale;
-            _yaw += Input.GetAxis("Mouse X") * sensitivity;
-            _pitch -= Input.GetAxis("Mouse Y") * sensitivity;
+            var look = GameInput.Look;
+            _yaw += look.x * sensitivity;
+            _pitch -= look.y * sensitivity;
             _pitch = Mathf.Clamp(_pitch, 10f, 65f);
         }
 

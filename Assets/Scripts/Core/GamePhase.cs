@@ -5,7 +5,6 @@ namespace CyberWizard.Core
         Starting,
         Ready,
         Wave,
-        Paused,
         Ended,
         Defeat,
         Failed

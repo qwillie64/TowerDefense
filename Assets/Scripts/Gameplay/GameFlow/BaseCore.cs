@@ -9,7 +9,6 @@ namespace CyberWizard.Gameplay.GameFlow
     {
         [SerializeField, Min(1f)] private float maxHealth = 100f;
 
-        public event Action<float, float> HealthChanged;
         public event Action Destroyed;
 
         public bool IsAlive => CurrentHealth > 0f;
@@ -42,7 +41,6 @@ namespace CyberWizard.Gameplay.GameFlow
         private void HandleVitalityChanged(float current, float maximum)
         {
             if (_healthBar != null) _healthBar.SetValue(current, maximum);
-            HealthChanged?.Invoke(current, maximum);
         }
 
         private void HandleDepleted() => Destroyed?.Invoke();

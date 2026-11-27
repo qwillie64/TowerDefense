@@ -10,12 +10,6 @@ namespace CyberWizard.Gameplay.Enemies
         public string PathId => pathId;
         public Transform[] Waypoints => waypoints;
 
-        public void Configure(string newPathId, params Transform[] newWaypoints)
-        {
-            pathId = newPathId;
-            waypoints = newWaypoints;
-        }
-
         private void OnDrawGizmos()
         {
             // 在 Scene View 顯示路徑，方便檢查與調整路徑點。

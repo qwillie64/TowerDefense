@@ -2,6 +2,8 @@
 
 本文件依 `CLAUDE.md` 第 3 節累積記錄每項功能的實作內容。狀態用語：**已完成**、**部分完成**、**尚未實作**、**尚未驗證**。
 
+> 2026-11-27：敵人移動改用 NavMesh，輸入集中到 `GameInput`，並移除沒有使用的程式碼；`EnemyMovementMotor`、`GroundGravity`、`EnemyStatusController` 已刪除。下文提到這些類別的段落是當時的紀錄，詳見最後一節「技術債整理：輸入集中、敵人改用 NavMesh、移除殘留程式碼」。
+>
 > 2026-11-26：專案結構已調整，原本 `Assets/_Project/` 底下的資料夾移到 `Assets/` 下，本文件中的路徑已全部同步改寫。舊場景 `VerticalSlice`、`SampleScene` 以及只服務它們的程式碼已刪除。下文中提到 `VerticalSlice` 的段落是當時的紀錄，詳見「移除舊版場景與已棄用程式碼」與「專案資料夾結構調整」兩節。
 
 ---
@@ -363,14 +365,14 @@ Level1_Map
 
 | 檔案 | 修改前 → 修改後 |
 | --- | --- |
-| `EnemyMovementMotor.cs` | 只在水平面移動，高度交給重力 → 新增可選的「跟隨目標高度」模式，連同 Y 一起移向路徑點，轉向時只看水平方向。預設關閉。 |
-| `EnemyAgent.cs` | 新增 `SiegeObjective = "siege"`：走到路徑終點後停住並持續攻擊目標；目標毀壞或沒有目標時也不會離場。新增 `Halt()`：停止所有行動。`Initialize` 新增可選參數 `followPathHeight`：開啟時不加 `GroundGravity`，改由路徑點決定高度。 |
-| `EnemySpawner.cs` | 新增 Inspector 欄位 `followWaypointHeight`（預設關閉），傳給 `EnemyAgent`。 |
+| `EnemyMovementMotor.cs` | 只在水平面移動，高度交給重力 → 新增可選的「跟隨目標高度」模式，連同 Y 一起移向路徑點，轉向時只看水平方向。預設關閉。（2026-11-27 已移除，敵人改用 NavMesh，見「技術債整理：輸入集中、敵人改用 NavMesh、移除殘留程式碼」一節） |
+| `EnemyAgent.cs` | 新增 `SiegeObjective = "siege"`：走到路徑終點後停住並持續攻擊目標；目標毀壞或沒有目標時也不會離場。新增 `Halt()`：停止所有行動。`Initialize` 新增可選參數 `followPathHeight`：開啟時不加 `GroundGravity`，改由路徑點決定高度。（2026-11-27 已移除，敵人改用 NavMesh，見「技術債整理：輸入集中、敵人改用 NavMesh、移除殘留程式碼」一節） |
+| `EnemySpawner.cs` | 新增 Inspector 欄位 `followWaypointHeight`（預設關閉），傳給 `EnemyAgent`。（2026-11-27 已移除，敵人改用 NavMesh，見「技術債整理：輸入集中、敵人改用 NavMesh、移除殘留程式碼」一節） |
 | `WaveDirector.cs` | 新增 `StopSchedule()`：停止排程並中止尚未生成完的梯隊。 |
 | `EnemyPath.cs` | 新增 `OnDrawGizmos`：在 Scene View 以橘紅色線與球顯示路徑點。 |
 
 修改原因：
-- 既有敵人移動時固定高度，只能靠 `GroundGravity` 往下落，無法爬上斜坡或傾斜的鏽巷，所以需要「跟隨路徑點高度」的移動方式。
+- 既有敵人移動時固定高度，只能靠 `GroundGravity` 往下落，無法爬上斜坡或傾斜的鏽巷，所以需要「跟隨路徑點高度」的移動方式。（2026-11-27 已移除，敵人改用 NavMesh，見「技術債整理：輸入集中、敵人改用 NavMesh、移除殘留程式碼」一節）
 - 既有的 `attack_base` 目標在抵達後攻擊一次就離場，不符合「停住攻擊閘門」的需求，所以新增 `siege` 目標。
 
 **場景新增物件（`Level_1.unity`）**
@@ -444,7 +446,8 @@ Level1_Systems               # EnemySpawner + WaveDirector + GateDefenseFlow
 | `Path_*` 的子物件 `WP_xx` | Transform | 路徑點位置；可在 Scene View 拖曳，路線以 Gizmo 線顯示。 |
 | `Path_*`（`EnemyPath`） | `pathId`、`waypoints` | 路線 ID 與路徑點順序。 |
 | `Spawn_SouthWest` | Transform | 生成點位置。 |
-| `Level1_Systems`（`EnemySpawner`） | `spawnPointId`（`spawn_southwest`）、`secondarySpawnPointId`（目前未使用）、`paths`、`enemyDefinitions`、`baseCore`、`followWaypointHeight` | 生成點 ID、可用路線、敵人定義、攻擊目標、是否跟隨路徑點高度。 |
+| `Level1_Systems`（`EnemySpawner`） | `spawnPointId`（`spawn_southwest`）、`secondarySpawnPointId`（目前未使用）、`paths`、`enemyDefinitions`、`baseCore`、`behaviorSettings` | 生成點 ID、可用路線、敵人定義、攻擊目標、敵人行為設定（目前未指定，使用程式預設值）。`followWaypointHeight` 已於 2026-11-27 移除。 |
+| `Level1_Systems`（`LevelNavMesh`，2026-11-27 新增） | `geometryRoot`（`Level1_Map`）、代理尺寸、坡度、跨步高度、體素與圖塊大小 | 執行時烘焙 NavMesh 的範圍與參數，見最後一節。 |
 | `Level1_Systems`（`GateDefenseFlow`） | `scheduleRelativePath`、`gate`、`hideWhenGateDestroyed`、`startOnPlay` | 波次檔案、閘門、破壞後隱藏的物件、是否自動開始。 |
 | `Assets/Data/Enemies/EnemyLevel0.asset` | `maxHealth` 50、`moveSpeed` 3、`contactDamage` 3、`attackInterval` 1、`reward` 100（2026-11-26 由 150 改為 100） | 小兵數值。（原本同時被 `VerticalSlice` 使用，該場景已於 2026-11-26 刪除。） |
 
@@ -455,9 +458,9 @@ Level1_Systems               # EnemySpawner + WaveDirector + GateDefenseFlow
   - 所有梯隊共用同一個生成點。同一波的路徑一與路徑二梯隊同時生成，生成當下會重疊，離開左下角路口後才分開。
   - 第二波有兩個路徑二梯隊同時生成，會兩隻一組全程重疊前進。
   - 所有小兵停在同一個閘門前的點，會疊在一起。
-  - 目前沒有敵人之間的避讓。
-- **路徑點與地形分開**：路徑點的高度是依目前的地形坡度算出來的。修改 `SlopedTerrain` 的角度或移動道路後，需要手動調整路徑點。
-- **不走重力的敵人**：開啟 `followWaypointHeight` 的敵人不使用 `GroundGravity`，高度完全由路徑點決定。若路徑點不在地面上，敵人會懸空或陷入地面。
+  - 目前沒有敵人之間的避讓。（2026-11-27 起可在 `EnemyBehaviorSettings.avoidOtherEnemies` 開啟，預設關閉，行為與之前相同。）
+- ~~**路徑點與地形分開**：路徑點的高度是依目前的地形坡度算出來的。修改 `SlopedTerrain` 的角度或移動道路後，需要手動調整路徑點。~~ 2026-11-27 起敵人高度由 NavMesh 決定，路徑點只需在地面附近（4 公尺內）；但移動道路後仍需調整路徑點的水平位置。
+- ~~**不走重力的敵人**：開啟 `followWaypointHeight` 的敵人不使用 `GroundGravity`，高度完全由路徑點決定。若路徑點不在地面上，敵人會懸空或陷入地面。~~ 2026-11-27 已改用 NavMesh，此限制不再存在。
 - **閘門借用 `BaseCore`**：閘門目標使用既有的 `BaseCore` 元件，它的陣營是 Player、名稱含「主堡」語意。目前只有本關使用，沒有另建專用類別。
 - **UI 有限**：2026-11-26 起有原型 HUD 顯示勝敗訊息（見第三節），但仍沒有重新開始或暫停。
 - **波次時間是絕對時間**：不會等上一波清除，與既有關卡規則相同。
@@ -822,10 +825,10 @@ Unity 編輯器當時沒有開啟，所以直接在專案上以 Unity 2022.3.62f
 | 檔案 | 修改 |
 | --- | --- |
 | `Scripts/Gameplay/Enemies/EnemyAgent.cs` | 移除意圖選擇、佔領中立基地、攻擊塔的流程，以及 `TowerRegistry`、`NeutralOutpostModule` 參數。敵人一律沿路線前進，並攻擊玩家與閘門。Level_1 原本就沒有塔登錄與中立基地，舊流程從來不會被選到。 |
-| `Scripts/Gameplay/Enemies/EnemySpawner.cs` | 移除 `towerRegistry`、`neutralModule` 欄位與 `SetNeutralModule()`，`Configure()` 不再接受塔登錄參數。 |
+| `Scripts/Gameplay/Enemies/EnemySpawner.cs` | 移除 `towerRegistry`、`neutralModule` 欄位與 `SetNeutralModule()`，`Configure()` 不再接受塔登錄參數。（2026-11-27 `Configure()` 已整個移除。） |
 | `Scripts/Gameplay/Enemies/BossAbilityController.cs` | 移除對可建造塔的範圍傷害，只保留對玩家的脈衝傷害。 |
 | `Scripts/Gameplay/Enemies/EnemyBehaviorSettings.cs` | 只保留 `attackDistance`；移除佔領機率、攻擊塔機率與佔領時間。 |
-| `Scripts/Gameplay/Player/PrototypePlayerAttack.cs` | 移除建造模式、連攜倍率的引用，以及瞄準敵方士兵的分支；`Configure()` 只剩玩家與攝影機兩個參數。 |
+| `Scripts/Gameplay/Player/PrototypePlayerAttack.cs` | 移除建造模式、連攜倍率的引用，以及瞄準敵方士兵的分支；`Configure()` 只剩玩家與攝影機兩個參數。（2026-11-27 `Configure()` 已整個移除。） |
 | `Scripts/Presentation/PrototypeMaterialLibrary.cs` | `PrototypeMaterialRole` 只保留 `Map`、`Player`、`Enemy`，並移除 `GetElementRole()`。 |
 
 **保留但 Level_1 目前沒有使用的資料**
@@ -1130,7 +1133,7 @@ Unity 編輯器開著，所以把 `Assets`、`Packages`、`ProjectSettings` 複�
 | --- | --- |
 | `Packages/manifest.json`、`Packages/packages-lock.json` | 新增 OpenFracture（鎖定 commit）。lock 檔由 Unity 更新，含上述兩個依賴。 |
 | `Scripts/CyberWizard.Runtime.asmdef` | 以 GUID 引用 OpenFracture 的執行期組件。該組件的名稱是通用的 `RuntimeAssembly`，改用 GUID 可避免與其他套件混淆。 |
-| `Scripts/Presentation/GateShatterOnDestroyed.cs`（新增） | 掛在 `Gate_Door`。監聽 `BaseCore.Destroyed`，觸發時呼叫 `Fracture.CauseFracture()`；在 OpenFracture 的 `onCompleted` 回呼中找到碎片父物件 `Gate_DoorFragments`，對每塊碎片施加一次爆炸速度。提供 `IsShattered`、`FragmentRoot` 屬性與 `Shattered` 事件。 |
+| `Scripts/Presentation/GateShatterOnDestroyed.cs`（新增） | 掛在 `Gate_Door`。監聽 `BaseCore.Destroyed`，觸發時呼叫 `Fracture.CauseFracture()`；在 OpenFracture 的 `onCompleted` 回呼中找到碎片父物件 `Gate_DoorFragments`，對每塊碎片施加一次爆炸速度。提供 `IsShattered`、`FragmentRoot` 屬性與 `Shattered` 事件（2026-11-27 因沒有訂閱者已移除）。 |
 | `Scenes/Level_1.unity` | `Gate_Door` 新增 Kinematic `Rigidbody`（OpenFracture 必要元件，設為 Kinematic 讓門平時固定）、`Fracture`、`GateShatterOnDestroyed`（連到 `Gate_Core` 的 `BaseCore`）；並把 `Gate_Door` 從 `GateDefenseFlow.hideWhenGateDestroyed` 移除，清單只剩 `Gate_Barrier`。 |
 | `Tests/PlayMode/Level1GateDefensePlayModeTests.cs` | 擴充既有的閘門測試：破碎前門是 Kinematic；被打破後，原門停用、`IsShattered` 為真、至少 10 塊碎片都是非 Kinematic 剛體並帶凸面碰撞體；碎片沒有被銷毀，平均位置往南（關內）移動，且至少 80% 留在地圖內。 |
 
@@ -1371,7 +1374,7 @@ Unity 編輯器開著，所以把 `Assets`、`Packages`、`ProjectSettings` 複�
 
 - `Time.timeScale`。**沒有新增外部套件。**
 - 移動、攻擊冷卻、敵人、粒子等原本就以 `Time.deltaTime`／`Time.time` 計算，自動跟著變慢。
-- 滑鼠視角：`Input.GetAxis("Mouse X/Y")` 是每幀的滑鼠位移，與時間無關，因此在 `PrototypeCameraFollow` 乘上 `Time.timeScale`。
+- 滑鼠視角：`Input.GetAxis("Mouse X/Y")`（2026-11-27 起改由 `GameInput.Look` 讀取）是每幀的滑鼠位移，與時間無關，因此在 `PrototypeCameraFollow` 乘上 `Time.timeScale`。
 - `Rigidbody.interpolation`：閘門碎片開啟插值，讓慢動作中的碎片平滑移動。
 
 ### 實作方式
@@ -1423,3 +1426,106 @@ Unity 編輯器開著，所以把 `Assets`、`Packages`、`ProjectSettings` 複�
 | EditMode 測試 | **28 項全數通過**（新增 7 項：`RoadMeshBuilderTests` 4 項、`LevelScheduleLoaderEditModeTests` 3 項）。 |
 | PlayMode 測試 | **10 項中 8 項通過**（新增 3 項，皆通過）。失敗的 2 項與前幾節相同：`Towers_AimFireRivetsKillEnemiesAndGrantEnergy`、`Upgrade_PlayerNearTowerUpgradesEachPartWithEnergy`，原因是 `FixedTowerProfile.asset` 的攻擊力為 20，但測試寫死 10，與本次修改無關。 |
 | 暫時檔案 | 截圖工具、場景修改腳本、WebGL 編譯檢查腳本與截圖測試都已刪除（含 `.meta`）。 |
+
+---
+
+## 技術債整理：輸入集中、敵人改用 NavMesh、移除殘留程式碼
+
+- 紀錄日期：2026-11-27
+- 狀態：**已完成**（Unity 編輯器內實際遊玩手感**尚未驗證**，見驗證方式）
+- 需求來源：使用者要求依 `Ref/後續開發指南.md` 第 11 節「已知技術債」優先處理前三項，並盡可能簡化程式架構。方案經使用者確認：NavMesh 用內建模組在執行時烘焙（不加套件）；輸入用包裝舊版 Input 的靜態類別（不加套件）；簡化範圍限「移除殘留」，不重構場景結構。
+
+### 功能目的
+
+| 技術債（指南原文） | 處理結果 |
+| --- | --- |
+| 1. Builder 同時負責資產、場景與依賴組裝 | **不適用**：`VerticalSliceSceneBuilder` 已於 2026-11-26 刪除，`Level_1` 直接編輯場景。 |
+| 2. 多個控制器直接讀取舊版 `Input` API | **已完成**：新增 `GameInput`，四個控制器改為讀取它。 |
+| 3. 敵人與士兵用 Transform 水平移動，未使用 NavMesh | **已完成**：敵人改用 `NavMeshAgent`；士兵已於 2026-11-26 刪除。 |
+| 4. `GroundGravity` 每幀物理查詢（非前三項，連帶解決） | **已完成**：`GroundGravity` 不再需要，已刪除。 |
+
+### 使用技術
+
+- `UnityEngine.AI`（內建模組 `com.unity.modules.ai`，原本就在 `manifest.json`）：`NavMeshBuilder.CollectSources`／`BuildNavMeshData`、`NavMesh.AddNavMeshData`、`NavMeshAgent`、`NavMesh.SamplePosition`。**沒有新增任何外部套件**，也沒有安裝 AI Navigation 套件。
+- 舊版 Input Manager（`Project Settings > Active Input Handling` 未變更），以靜態類別集中讀取。
+
+### 實作方式
+
+**新增檔案**
+
+| 檔案 | 責任 |
+| --- | --- |
+| `Scripts/Infrastructure/GameInput.cs` | 所有鍵盤／滑鼠輸入的唯一入口與按鍵配置：`Move`、`Look`、`JumpPressed`、`AttackPressed`、`PointerPosition`、`UpgradeSlotPressed(slot)`。專案中其他程式已不直接呼叫 `UnityEngine.Input`。 |
+| `Scripts/Gameplay/Level/LevelNavMesh.cs` | 掛在 `Level1_Systems`，`geometryRoot` 指向 `Level1_Map`。在 `Start` 收集根物件底下的非 Trigger 碰撞體並烘焙 NavMesh，`OnDestroy` 移除。玩家、敵人、發射物不在 `Level1_Map` 底下，因此不會被烘焙進去。 |
+
+**敵人移動（修改前 → 修改後）**
+
+- 修改前：`EnemyMovementMotor` 以 `Vector3.MoveTowards` 直線移向路徑點，高度由路徑點線性內插（`followWaypointHeight`）或 `GroundGravity` 射線落地決定；`EnemyStatusController` 提供緩速／暈眩／燃燒。
+- 修改後：`EnemyAgent` 生成時以 `NavMesh.SamplePosition` 找到出生點附近的 NavMesh，加上 `NavMeshAgent`，依序 `SetDestination` 到路線上的每個路徑點。剩餘路程小於 `waypointArrivalDistance` 時換下一點；中途點不煞車，最後一點才開 `autoBraking`。玩家進入近戰距離時 `isStopped` 並攻擊；走完路線後的行為（圍攻持續攻擊／攻擊一次離場）與修改前相同。路線仍由 JSON 的 `pathId` 與 `EnemyPath` 路徑點決定，NavMesh 只負責地形貼合與路徑點之間的尋路。
+- `EnemySpawner` 把「指定道路的路徑點，或沒有道路時的終點」組成單一路線陣列交給 `EnemyAgent`，取代原本 `destination` 與 `path` 兩條分支。
+
+**實作中遇到並處理的問題**
+
+| 問題 | 原因 | 處理 |
+| --- | --- | --- |
+| 長斜線路段的 NavMesh 路徑繞經 (±64, …) 的圖塊角落，偏離路線最多 7.8 公尺 | 預設圖塊 64 公尺，斜坡上的圖塊交界連接不完整 | `tileSize` 預設 1024 體素（256 公尺），整張地圖落在同一圖塊；烘焙後所有路段都是直線，與路線箭頭一致。 |
+| Play Mode 中敵人出生點找不到 NavMesh | `TerracePlatform` 等在 `OnEnable` 才產生碰撞網格，原本在 `Awake` 烘焙時網格還不存在 | 改在 `Start` 烘焙。 |
+| 敵人出生當幀半埋進地面（腳底低於地面 0.95） | `AddComponent<NavMeshAgent>` 啟用時以 `baseOffset = 0` 立即貼地 | 先停用物件、設定 `baseOffset` 後再啟用。 |
+| 斜坡上 NavMesh 高度比地面高最多約 0.44 | 大圖塊的多邊形高度近似誤差 | 開啟 `buildHeightMesh`，代理高度改依高度網格；之後量測不到超過 0.3 的落差。 |
+
+**移除的殘留程式碼**（VerticalSlice／Builder 時期留下、目前沒有任何呼叫者或訂閱者）
+
+| 類別 | 移除內容 |
+| --- | --- |
+| 整個檔案 | `EnemyMovementMotor`、`GroundGravity`（含空的 `Gameplay/Movement/` 資料夾）、`EnemyStatusController`（緩速／暈眩／燃燒原本由已刪除的元素塔施加，現在沒有來源）。 |
+| `Configure()` 注入方法 | `EnemySpawner`、`WaveDirector`、`RewardService`、`ResourceWallet`、`PrototypePlayerAttack`、`PrototypeCameraFollow`、`EnemyDefinition`、`EnemyPath`。依賴一律由場景的 `[SerializeField]` 設定。 |
+| 沒有訂閱者的事件 | `WaveDirector.StatsChanged`／`WaveBegan`／`WaveCleared`（連同只為 `WaveCleared` 存在的逐波完成追蹤）、`GateDefenseFlow.PhaseChanged`、`PrototypePlayerController.HealthChanged`／`Died`／`Respawned`、`BaseCore.HealthChanged`、`FixedTowerCombat.StateChanged`、`ResourceWallet.Changed`、`PrototypePlayerAttack.AimStateChanged`、`GateShatterOnDestroyed.Shattered`。HUD 一直是每幀讀取狀態，不受影響。 |
+| 未使用的成員 | `WaveDirector.ActiveBoss`、`PrototypePlayerController.SetIncomingDamageMultiplier`／`IsRespawning`、`EnemyAgent.ApplySlow/ApplyStun/ApplyBurn`、`EnemyMeleeAttack.CooldownRemaining` 與無發射物的 `AttackImmediately` 多載、`Vitality.Restore`、`Faction.Neutral`、`GamePhase.Paused`。 |
+| 每次觸發的 Log | `EnemySpawner` 每隻敵人生成、`RewardService` 每次獎勵的 `Debug.Log`。波次開始／結束等低頻紀錄保留。 |
+
+`Scripts/` 的 C# 總行數由 5980 行降為 5731 行（含新增的兩個檔案）。
+
+**場景修改（`Level_1.unity`）**：`Level1_Systems` 新增 `LevelNavMesh` 元件；`EnemySpawner` 的 `followWaypointHeight` 序列化欄位已移除。沒有其他物件變動。
+
+### 遊戲呈現
+
+- 操作方式不變（WASD、空白鍵、滑鼠、左鍵、1／2／3）。
+- 敵人仍沿路線箭頭前進並停在閘門前，路線形狀與修改前相同；腳底改為貼合實際地面，而不是路徑點之間的直線內插。
+- 進入場景時多約 0.25 秒的 NavMesh 烘焙（批次模式量測 247 ms）。
+
+### 可調整參數
+
+| 位置 | 參數 | 用途 |
+| --- | --- | --- |
+| `Level1_Systems`（`LevelNavMesh`） | `geometryRoot`、`includedLayers` | 參與烘焙的幾何範圍與圖層。 |
+| 同上 | `agentRadius` 0.5、`agentHeight` 2、`maxSlope` 45、`stepHeight` 0.75（皆暫定） | 可行走區域的代理尺寸、最大坡度與跨步高度。 |
+| 同上 | `voxelSize` 0.25、`tileSize` 1024 | 烘焙精度與圖塊大小；`tileSize` 調小會重新出現圖塊角落繞路的問題。 |
+| `EnemyBehaviorSettings` | `waypointArrivalDistance` 1、`acceleration` 60、`angularSpeed` 720（皆暫定） | 換下一個路徑點的距離、起步／停止速度、轉向速度。 |
+| 同上 | `avoidOtherEnemies`（預設關閉） | 開啟後敵人彼此避讓。關閉時與修改前一樣可以重疊。 |
+| `Scripts/Infrastructure/GameInput.cs` | 常數與 `UpgradeKeys` 陣列 | 所有按鍵配置。 |
+
+注意：場景中 `EnemySpawner.behaviorSettings` 目前**沒有指定**資產（修改前就是如此），敵人使用程式內建的預設值。要調整上表 `EnemyBehaviorSettings` 的數值，需把 `Assets/Data/Enemies/EnemyBehaviorSettings.asset` 指定到該欄位。
+
+### 限制與待改善事項
+
+- 開啟 `avoidOtherEnemies` 時，多隻圍攻的敵人可能擠不到最後一個路徑點的抵達距離內，就停不下來攻擊閘門。目前預設關閉，因此沒有處理；開啟前需要調整抵達判定（**尚未驗證**）。
+- NavMesh 只在 `Start` 烘焙一次，執行期間地形或障礙物改變（例如閘門碎片）不會更新。
+- 塔與玩家不是 NavMesh 障礙物；敵人仍會穿過玩家（與修改前相同）。
+- `GameInput` 仍是舊版 Input Manager，不支援重新綁定按鍵或手把；改用 Input System 時只需修改這個類別。
+- `Ref/後續開發指南.md` 只更新了第 11 節（技術債）；其他段落仍描述已刪除的 VerticalSlice／Builder 架構，尚未修訂。
+- `Level1_MinionsClimbToGateBreakItAndThenEverythingStops` 中「碎片平均往南」這一條斷言，在 6 次執行中失敗 1 次（126.64，門檻 126.28）。它驗證的是 OpenFracture 的隨機切割與爆炸物理，與敵人及 NavMesh 無關；修改前的程式是否也會間歇失敗**尚未驗證**。
+
+### 驗證方式
+
+以 Unity 2022.3.62f3 批次模式（`-batchmode -runTests`）執行；Unity 編輯器內**沒有**實際遊玩。
+
+| 項目 | 結果 |
+| --- | --- |
+| 編譯 | 無錯誤、無專案程式碼的編譯警告。 |
+| EditMode 測試 | **27 項全數通過**。移除 2 項 `EnemyMovementMotor` 測試；新增 `LevelNavMesh_BuildsWalkableSlopeAndRoutesAroundObstacles`（斜坡可走、路徑會繞過牆）。`ResourceWallet`、`Vitality` 測試改用仍存在的 API。 |
+| PlayMode 測試 | **10 項中 8 項通過**（最後兩次完整執行結果相同）。失敗的 2 項與修改前相同：`Towers_AimFireRivetsKillEnemiesAndGrantEnergy`、`Upgrade_PlayerNearTowerUpgradesEachPartWithEnergy`，原因是 `FixedTowerProfile.asset` 攻擊力為 20，但測試寫死 10。閘門攻防測試（敵人走完兩條路線、打破閘門、失敗後停止）通過，腳底與地面落差 < 0.5 的斷言通過。 |
+| NavMesh 路線檢查（暫時 Editor 腳本，已刪除） | 出生點與 7 個路徑點都在 NavMesh 上（水平誤差 0）；所有路段 `PathComplete`，路徑長度等於直線距離（偏離 0）。 |
+| 腳底落差量測（暫時 PlayMode 測試，已刪除） | 完整兩波（20 隻）期間，沒有任何敵人腳底與地面落差超過 0.3。 |
+| Log 檢查 | PlayMode 記錄中沒有「出生點附近沒有 NavMesh」或「無法規劃路線」的錯誤。 |
+| 暫時檔案 | `Assets/Editor/TempNavMeshSetup.cs`、`Assets/Tests/PlayMode/TempGapDiag.cs` 已刪除（含 `.meta`）。Unity 執行時自動刪除的 `YughuesFreePavementsMaterials/*.unitypackage.meta` 已從 git 還原。 |
+| 實際遊玩手感（轉角、速度、與玩家互動） | **尚未驗證**。 |
