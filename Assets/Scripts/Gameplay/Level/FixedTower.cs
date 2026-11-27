@@ -51,6 +51,9 @@ namespace CyberWizard.Gameplay.Level
         public int TowerNumber => towerNumber;
         public float BaseRadius => baseRadius;
         public float TotalHeight => baseHeight + bodyHeight;
+        public Transform BaseVisual => baseVisual;
+        public Transform BodyVisual => bodyVisual;
+        public Transform BarrelVisual => barrelVisual;
 
         private void OnValidate()
         {

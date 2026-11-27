@@ -6866,6 +6866,11 @@ MonoBehaviour:
   - {fileID: 1778826630}
   - {fileID: 19717817}
   interactionRadius: 12
+  viewCamera: {fileID: 1613315604}
+  aimRayDistance: 60
+  aimLayers:
+    serializedVersion: 2
+    m_Bits: 4294967291
 --- !u!114 &352894080
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -22820,6 +22825,7 @@ GameObject:
   m_Component:
   - component: {fileID: 1486551761}
   - component: {fileID: 1486551762}
+  - component: {fileID: 1486551763}
   m_Layer: 0
   m_Name: TowerUpgradePrompt
   m_TagString: Untagged
@@ -22862,6 +22868,21 @@ MonoBehaviour:
   fontSize: 48
   padding: 0.35
   feedbackDuration: 1.2
+--- !u!114 &1486551763
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1486551760}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: cda8dbe83abc415d8096d7dff7c05122, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  interactor: {fileID: 352894079}
+  outlineMaterial: {fileID: 2100000, guid: 0387f42211b14f7d839486eaf8ee4e33, type: 2}
+  outlineMaskMaterial: {fileID: 2100000, guid: b44baf51e7b245bd9590f68036d76870, type: 2}
 --- !u!1 &1501743834
 GameObject:
   m_ObjectHideFlags: 0
