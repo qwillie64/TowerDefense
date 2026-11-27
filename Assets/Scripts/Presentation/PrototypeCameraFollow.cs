@@ -1,3 +1,4 @@
+using CyberWizard.Infrastructure;
 using UnityEngine;
 
 namespace CyberWizard.Presentation
@@ -19,11 +20,6 @@ namespace CyberWizard.Presentation
         private bool _gameplayActive;
 
         public bool GameplayActive => _gameplayActive;
-
-        public void Configure(Transform newTarget)
-        {
-            target = newTarget;
-        }
 
         private void Start()
         {

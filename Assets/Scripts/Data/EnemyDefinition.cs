@@ -29,33 +29,6 @@ namespace CyberWizard.Data
         public Vector3 PrototypeScale => prototypeScale;
         public bool IsBoss => isBoss;
 
-        public void Configure(
-            string typeId,
-            string newDisplayName,
-            float health,
-            float speed,
-            float damage,
-            int newReward,
-            float interval,
-            PrimitiveType shape,
-            Vector3 scale,
-            bool boss = false)
-        {
-            enemyTypeId = typeId;
-            displayName = newDisplayName;
-            maxHealth = Mathf.Max(1f, health);
-            moveSpeed = Mathf.Max(0.1f, speed);
-            contactDamage = Mathf.Max(0f, damage);
-            reward = Mathf.Max(0, newReward);
-            attackInterval = Mathf.Max(0.05f, interval);
-            prototypeShape = shape;
-            prototypeScale = new Vector3(
-                Mathf.Max(0.1f, scale.x),
-                Mathf.Max(0.1f, scale.y),
-                Mathf.Max(0.1f, scale.z));
-            isBoss = boss;
-        }
-
         private void OnValidate()
         {
             maxHealth = Mathf.Max(1f, maxHealth);

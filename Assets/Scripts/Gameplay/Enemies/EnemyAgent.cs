@@ -1,41 +1,45 @@
 using System;
 using System.Collections.Generic;
 using CyberWizard.Core;
+using CyberWizard.Data;
 using CyberWizard.Gameplay.GameFlow;
 using CyberWizard.Gameplay.Player;
 using CyberWizard.Presentation;
-using CyberWizard.Data;
-using CyberWizard.Gameplay.Movement;
 using UnityEngine;
+using UnityEngine.AI;
 
 namespace CyberWizard.Gameplay.Enemies
 {
+    /// <summary>
+    /// 敵人的生命週期與行為：以 NavMeshAgent 依序走向路線上的每個路徑點，
+    /// 途中玩家進入近戰距離時停下攻擊玩家，走完路線後攻擊目標（閘門）。
+    /// 需要場景中已有 NavMesh（由 LevelNavMesh 建立）。
+    /// </summary>
     public sealed class EnemyAgent : MonoBehaviour, IDamageable
     {
-        private const float ArrivalDistance = 0.08f;
-
-        private static readonly List<EnemyAgent> ActiveAgents = new List<EnemyAgent>();
-
-        /// <summary>目前啟用中的敵人（含已死亡但尚未銷毀者，使用前請檢查 IsAlive）。</summary>
-        public static IReadOnlyList<EnemyAgent> Active => ActiveAgents;
-
         /// <summary>走到路徑終點後停住，持續攻擊目標（例如閘門），不會自行離場。</summary>
         public const string SiegeObjective = "siege";
 
-        private Transform _destination;
+        private const float NavMeshSampleRadius = 4f;
+
+        private static readonly List<EnemyAgent> ActiveAgents = new List<EnemyAgent>();
+        private static EnemyBehaviorSettings _defaultSettings;
+
+        private Transform[] _route = Array.Empty<Transform>();
+        private int _routeIndex;
+        private bool _holdAtRouteEnd;
         private bool _reportedExit;
+        private bool _halted;
         private PrototypePlayerController _player;
         private BaseCore _baseCore;
-        private WorldHealthBar _healthBar;
-        private Vitality _vitality;
-        private EnemyStatusController _status;
-        private EnemyBehaviorSettings _behaviorSettings;
-        private EnemyMovementMotor _movementMotor;
+        private EnemyBehaviorSettings _settings;
+        private NavMeshAgent _navAgent;
         private EnemyMeleeAttack _meleeAttack;
-        private Transform[] _path;
-        private int _pathIndex;
-        private bool _holdAtDestination;
-        private bool _halted;
+        private Vitality _vitality;
+        private WorldHealthBar _healthBar;
+
+        /// <summary>目前啟用中的敵人（含已死亡但尚未銷毀者，使用前請檢查 IsAlive）。</summary>
+        public static IReadOnlyList<EnemyAgent> Active => ActiveAgents;
 
         public event Action<EnemyAgent> Exited;
         public event Action<EnemyAgent> Killed;
@@ -50,16 +54,18 @@ namespace CyberWizard.Gameplay.Enemies
         public float CurrentHealth => _vitality != null ? _vitality.Current : 0f;
         public float MaxHealth => _vitality != null ? _vitality.Maximum : 100f;
 
+        private Vector3 AttackOrigin => transform.position + Vector3.up * 0.7f;
+
+        /// <param name="route">依序要走過的路徑點；最後一點是攻擊目標前的停留位置。</param>
+        /// <param name="holdAtRouteEnd">true：走完路線後停住並持續攻擊目標（圍攻）；false：攻擊一次後離場。</param>
         public void Initialize(
             EnemyDefinition definition,
             string waveId,
-            Transform destination,
+            Transform[] route,
             PrototypePlayerController player,
             BaseCore baseCore,
-            EnemyBehaviorSettings behaviorSettings,
-            Transform[] path = null,
-            string objective = null,
-            bool followPathHeight = false)
+            EnemyBehaviorSettings settings,
+            bool holdAtRouteEnd)
         {
             if (definition == null)
             {
@@ -70,44 +76,20 @@ namespace CyberWizard.Gameplay.Enemies
             IsBoss = definition.IsBoss;
             Reward = definition.Reward;
             WaveId = waveId;
-            _destination = destination;
-            if (followPathHeight)
-            {
-                // 路徑點放在地表上；物件中心要再高出腳底到中心的距離。
-                var bodyRenderer = GetComponent<Renderer>();
-                var footOffset = bodyRenderer != null ? transform.position.y - bodyRenderer.bounds.min.y : 0f;
-                transform.position += Vector3.up * footOffset;
-                _movementMotor = new EnemyMovementMotor(transform, definition.MoveSpeed, true, footOffset);
-            }
-            else
-            {
-                _movementMotor = new EnemyMovementMotor(transform, definition.MoveSpeed);
-            }
-
-            _meleeAttack = new EnemyMeleeAttack(
-                definition.ContactDamage,
-                definition.AttackInterval);
+            _route = route ?? Array.Empty<Transform>();
+            _holdAtRouteEnd = holdAtRouteEnd;
             _player = player;
             _baseCore = baseCore;
-            _behaviorSettings = behaviorSettings;
-            _path = path;
-            _holdAtDestination = string.Equals(objective, SiegeObjective, StringComparison.OrdinalIgnoreCase);
+            _settings = settings != null ? settings : DefaultSettings;
+            _meleeAttack = new EnemyMeleeAttack(definition.ContactDamage, definition.AttackInterval);
 
-            // 跟隨路徑高度時由路徑點決定高度，不再套用重力。
-            if (!followPathHeight && GetComponent<GroundGravity>() == null)
-            {
-                gameObject.AddComponent<GroundGravity>();
-            }
             _vitality = gameObject.AddComponent<Vitality>();
             _vitality.Changed += HandleVitalityChanged;
             _vitality.Depleted += HandleDepleted;
             _vitality.Initialize(definition.MaxHealth);
-            _status = gameObject.AddComponent<EnemyStatusController>();
-            _status.Configure(this);
             if (IsBoss)
             {
-                var bossAbility = gameObject.AddComponent<BossAbilityController>();
-                bossAbility.Configure(this, player);
+                gameObject.AddComponent<BossAbilityController>().Configure(this, player);
             }
 
             _healthBar = WorldHealthBar.Create(
@@ -116,6 +98,25 @@ namespace CyberWizard.Gameplay.Enemies
                 PrototypeMaterialRole.Enemy,
                 IsBoss ? 4f : 1.5f);
             _healthBar.SetValue(CurrentHealth, MaxHealth);
+
+            if (CreateNavAgent(definition.MoveSpeed))
+            {
+                SetNextDestination();
+            }
+        }
+
+        private static EnemyBehaviorSettings DefaultSettings
+        {
+            get
+            {
+                if (_defaultSettings == null)
+                {
+                    _defaultSettings = ScriptableObject.CreateInstance<EnemyBehaviorSettings>();
+                    _defaultSettings.hideFlags = HideFlags.HideAndDontSave;
+                }
+
+                return _defaultSettings;
+            }
         }
 
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
@@ -129,22 +130,7 @@ namespace CyberWizard.Gameplay.Enemies
         public void Halt()
         {
             _halted = true;
-        }
-
-        private void Update()
-        {
-            if (!IsAlive || _halted)
-            {
-                return;
-            }
-
-            _meleeAttack?.Tick(Time.deltaTime);
-            if (_status != null && !_status.CanAct)
-            {
-                return;
-            }
-
-            UpdateAttackBase();
+            SetMoving(false);
         }
 
         public void TakeDamage(float amount)
@@ -152,9 +138,128 @@ namespace CyberWizard.Gameplay.Enemies
             _vitality?.TakeDamage(amount);
         }
 
-        public void ApplySlow(float multiplier, float duration) => _status?.ApplySlow(multiplier, duration);
-        public void ApplyStun(float duration) => _status?.ApplyStun(duration);
-        public void ApplyBurn(float damagePerSecond, float duration) => _status?.ApplyBurn(damagePerSecond, duration);
+        private void Update()
+        {
+            if (!IsAlive || _halted || _navAgent == null)
+            {
+                return;
+            }
+
+            _meleeAttack.Tick(Time.deltaTime);
+            if (_player != null && _player.IsAlive &&
+                Vector3.Distance(transform.position, _player.transform.position) <= _settings.AttackDistance)
+            {
+                SetMoving(false);
+                _meleeAttack.TryAttack(_player, AttackOrigin);
+                return;
+            }
+
+            if (_routeIndex < _route.Length)
+            {
+                SetMoving(true);
+                if (!_navAgent.pathPending &&
+                    _navAgent.remainingDistance <= _settings.WaypointArrivalDistance)
+                {
+                    _routeIndex++;
+                    SetNextDestination();
+                }
+
+                return;
+            }
+
+            SetMoving(false);
+            AttackAtRouteEnd();
+        }
+
+        /// <summary>
+        /// 路線走完後的行為。圍攻與 Boss：停在原地持續攻擊（目標已毀壞時仍留在原地）；
+        /// 其他敵人：立即攻擊一次後離場。
+        /// </summary>
+        private void AttackAtRouteEnd()
+        {
+            if (_holdAtRouteEnd || IsBoss)
+            {
+                if (_baseCore != null)
+                {
+                    _meleeAttack.TryAttack(_baseCore, AttackOrigin);
+                }
+
+                return;
+            }
+
+            if (_baseCore != null)
+            {
+                _meleeAttack.AttackImmediately(_baseCore, AttackOrigin);
+            }
+
+            ReportExit();
+            Destroy(gameObject);
+        }
+
+        private bool CreateNavAgent(float moveSpeed)
+        {
+            if (!NavMesh.SamplePosition(transform.position, out var hit, NavMeshSampleRadius, NavMesh.AllAreas))
+            {
+                Debug.LogError($"{name} 的出生點附近沒有 NavMesh，敵人無法移動。請確認場景中有 LevelNavMesh。", this);
+                return false;
+            }
+
+            // NavMeshAgent 的位置是腳底；baseOffset 讓模型中心高於地面（以本地座標計算）。
+            var bodyRenderer = GetComponent<Renderer>();
+            var footOffset = bodyRenderer != null ? transform.position.y - bodyRenderer.bounds.min.y : 0f;
+
+            // NavMeshAgent 啟用時會立刻把物件貼到 NavMesh 上；先停用物件，設定好 baseOffset 再啟用，
+            // 避免出生當幀以 baseOffset = 0 貼地而半埋進地面。
+            gameObject.SetActive(false);
+            _navAgent = gameObject.AddComponent<NavMeshAgent>();
+            _navAgent.baseOffset = footOffset / Mathf.Max(0.0001f, transform.lossyScale.y);
+            _navAgent.speed = moveSpeed;
+            _navAgent.acceleration = _settings.Acceleration;
+            _navAgent.angularSpeed = _settings.AngularSpeed;
+            _navAgent.stoppingDistance = 0f;
+            _navAgent.obstacleAvoidanceType = _settings.AvoidOtherEnemies
+                ? ObstacleAvoidanceType.LowQualityObstacleAvoidance
+                : ObstacleAvoidanceType.NoObstacleAvoidance;
+            transform.position = hit.position + Vector3.up * footOffset;
+            gameObject.SetActive(true);
+            return _navAgent.isOnNavMesh;
+        }
+
+        /// <summary>把目的地設為下一個有效路徑點；略過遺失或無法規劃路徑的點。</summary>
+        private void SetNextDestination()
+        {
+            for (; _routeIndex < _route.Length; _routeIndex++)
+            {
+                var waypoint = _route[_routeIndex];
+                if (waypoint == null)
+                {
+                    continue;
+                }
+
+                // 中途點不減速，直接轉向下一點；最後一點才煞車停在終點。
+                _navAgent.autoBraking = _routeIndex == _route.Length - 1;
+                if (_navAgent.SetDestination(waypoint.position))
+                {
+                    return;
+                }
+
+                Debug.LogWarning($"{name} 無法規劃到路徑點 {waypoint.name} 的路線，略過此點。", this);
+            }
+        }
+
+        private void SetMoving(bool moving)
+        {
+            if (_navAgent == null || !_navAgent.isOnNavMesh || _navAgent.isStopped != moving)
+            {
+                return;
+            }
+
+            _navAgent.isStopped = !moving;
+            if (!moving)
+            {
+                _navAgent.velocity = Vector3.zero;
+            }
+        }
 
         private void HandleVitalityChanged(float current, float maximum)
         {
@@ -166,90 +271,6 @@ namespace CyberWizard.Gameplay.Enemies
             Killed?.Invoke(this);
             ReportExit();
             Destroy(gameObject);
-        }
-
-        private void UpdateAttackBase()
-        {
-            if (_player != null && _player.IsAlive &&
-                Vector3.Distance(transform.position, _player.transform.position) <= GetAttackDistance())
-            {
-                _meleeAttack?.TryAttack(_player, transform.position + Vector3.up * 0.7f);
-                return;
-            }
-
-            if (_destination == null)
-            {
-                ReportExit();
-                Destroy(gameObject);
-                return;
-            }
-
-            if (MoveAlongPath(ArrivalDistance) || (_path == null && MoveTowards(_destination, ArrivalDistance)))
-            {
-                // 圍攻：停在終點持續攻擊；沒有目標或目標已毀壞時仍留在原地，不會離場。
-                if (_holdAtDestination)
-                {
-                    if (_baseCore != null)
-                    {
-                        _meleeAttack?.TryAttack(_baseCore, transform.position + Vector3.up * 0.7f);
-                    }
-
-                    return;
-                }
-
-                if (_baseCore != null)
-                {
-                    if (IsBoss)
-                    {
-                        _meleeAttack?.TryAttack(_baseCore, transform.position + Vector3.up * 0.7f);
-                        return;
-                    }
-
-                    _meleeAttack?.AttackImmediately(_baseCore, transform.position + Vector3.up * 0.7f);
-                }
-
-                ReportExit();
-                Destroy(gameObject);
-            }
-        }
-
-        private bool MoveTowards(Transform target, float stopDistance)
-        {
-            return _movementMotor == null || _movementMotor.MoveTowards(
-                target,
-                stopDistance,
-                _status != null ? _status.SpeedMultiplier : 1f,
-                Time.deltaTime);
-        }
-
-        private bool MoveAlongPath(float stopDistance)
-        {
-            if (_path == null || _path.Length == 0)
-            {
-                return false;
-            }
-
-            while (_pathIndex < _path.Length && _path[_pathIndex] == null)
-            {
-                _pathIndex++;
-            }
-
-            if (_pathIndex >= _path.Length)
-            {
-                return true;
-            }
-
-            if (MoveTowards(_path[_pathIndex], stopDistance))
-            {
-                _pathIndex++;
-            }
-
-            return _pathIndex >= _path.Length;
-        }
-
-        private float GetAttackDistance()
-        {
-            return _behaviorSettings != null ? _behaviorSettings.AttackDistance : 2.6f;
         }
 
         private void OnDestroy()

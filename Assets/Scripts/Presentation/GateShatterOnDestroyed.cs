@@ -1,4 +1,3 @@
-using System;
 using CyberWizard.Gameplay.GameFlow;
 using UnityEngine;
 using UnityEngine.Events;
@@ -33,9 +32,6 @@ namespace CyberWizard.Presentation
 
         private Fracture _fracture;
         private Vector3 _explosionCenter;
-
-        /// <summary>破碎完成、碎片已施力後觸發。</summary>
-        public event Action<GateShatterOnDestroyed> Shattered;
 
         public bool IsShattered { get; private set; }
 
@@ -120,8 +116,6 @@ namespace CyberWizard.Presentation
                         ForceMode.VelocityChange);
                 }
             }
-
-            Shattered?.Invoke(this);
         }
     }
 }
