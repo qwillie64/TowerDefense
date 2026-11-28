@@ -8,7 +8,7 @@ namespace CyberWizard.Presentation
 {
     /// <summary>
     /// 地面路標：在下一波的梯隊生成前，沿每個梯隊預計的路線（出生點 → 各路徑點）
-    /// 貼地顯示一串發光箭頭，箭頭會沿前進方向循環流動。
+    /// 貼地顯示一串發光箭頭，箭頭會沿前進方向循環流動、跟著坡度傾斜，並在路線頭尾逐漸放大出現、縮小消失。
     /// 顯示時機：下一波尚未開始，且目前沒有梯隊正在生成（第一波在關卡開始前就顯示；
     /// 之後的波次在上一波全部生成完畢後顯示）；該波開始生成時隱藏。排程中止（失敗）後全部隱藏。
     /// 同一條路線只建立一個網格，多個梯隊走同一條路線時共用；只有顯示中的路線每幀更新網格。
@@ -40,6 +40,12 @@ namespace CyberWizard.Presentation
         [SerializeField, Min(0.1f)] private float length = 1.6f;
         [SerializeField, Min(0.05f)] private float thickness = 0.7f;
         [SerializeField, Min(0f), Tooltip("箭頭高於路徑點（路面）的距離。")] private float lift = 0.12f;
+
+        [SerializeField, Tooltip("箭頭沿路線的上下坡傾斜；關閉時水平平放。")]
+        private bool followSlope = true;
+
+        [SerializeField, Min(0f), Tooltip("路線頭尾的淡入淡出距離：箭頭離起點或終點小於此距離時逐漸縮小。0 表示不縮放。暫定值。")]
+        private float fadeDistance = 3.5f;
 
         [Header("流動動畫（暫定值）")]
         [SerializeField, Min(0f), Tooltip("箭頭沿路線前進的速度（單位／秒）；0 表示箭頭靜止。")]
@@ -227,7 +233,9 @@ namespace CyberWizard.Presentation
                 Length = length,
                 Thickness = thickness,
                 Lift = lift,
-                Offset = offset
+                Offset = offset,
+                FadeDistance = fadeDistance,
+                FollowSlope = followSlope
             };
             ChevronStrip.Build(strip.LocalPoints, settings, _vertices, _triangles);
 

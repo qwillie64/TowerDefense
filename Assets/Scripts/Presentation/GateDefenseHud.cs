@@ -22,6 +22,7 @@ namespace CyberWizard.Presentation
         [SerializeField] private PrototypePlayerController player;
         [SerializeField] private BaseCore gate;
         [SerializeField, Tooltip("可選：顯示目前可升級的塔。")] private TowerUpgradeInteractor upgradeInteractor;
+        [SerializeField, Tooltip("可選：結算面板出現時隱藏整個 HUD（準星、狀態欄與提示）。")] private LevelResultPanel resultPanel;
 
         [SerializeField, Range(0.01f, 0.05f), Tooltip("字體大小占畫面高度的比例。")]
         private float fontRatio = 0.022f;
@@ -30,8 +31,16 @@ namespace CyberWizard.Presentation
         private GUIStyle _bannerStyle;
         private int _styledHeight;
 
+        /// <summary>HUD 目前是否繪製（結算面板顯示時隱藏）。</summary>
+        public bool IsVisible => resultPanel == null || !resultPanel.IsShowing;
+
         private void OnGUI()
         {
+            if (!IsVisible)
+            {
+                return;
+            }
+
             EnsureStyles();
             DrawCrosshair();
             DrawStatusPanel();

@@ -25,6 +25,54 @@ namespace CyberWizard.Tests
         private const float RealTimeLimit = 120f;
 
         [UnityTest]
+        public IEnumerator FragmentCleanup_RemovesFragmentsBelowKillHeightAndShrinksTheRest()
+        {
+            var root = new GameObject("TestFragments");
+            var fallen = GameObject.CreatePrimitive(PrimitiveType.Cube);
+            var kept = GameObject.CreatePrimitive(PrimitiveType.Cube);
+            try
+            {
+                fallen.transform.SetParent(root.transform, false);
+                fallen.transform.position = new Vector3(0f, -100f, 0f);
+                fallen.AddComponent<Rigidbody>().isKinematic = true;
+                kept.transform.SetParent(root.transform, false);
+                kept.transform.position = new Vector3(0f, 0f, 0f);
+                kept.AddComponent<Rigidbody>().isKinematic = true;
+
+                var cleanup = root.AddComponent<ShatterFragmentCleanup>();
+                cleanup.Initialize(0.5f, 0.5f, -50f);
+                yield return null;
+                yield return null;
+
+                Assert.That(fallen == null, Is.True, "低於清除高度的碎片應立即移除。");
+                Assert.That(kept != null, Is.True, "保留時間內的碎片不應移除。");
+                Assert.That(cleanup.RemainingCount, Is.EqualTo(1));
+
+                var deadline = Time.realtimeSinceStartup + 5f;
+                var sawShrink = false;
+                while (root != null && Time.realtimeSinceStartup < deadline)
+                {
+                    if (kept != null && kept.transform.localScale.x < 0.99f)
+                    {
+                        sawShrink = true;
+                    }
+
+                    yield return null;
+                }
+
+                Assert.That(sawShrink, Is.True, "移除前碎片應先縮小。");
+                Assert.That(root == null, Is.True, "縮小完成後應移除碎片父物件。");
+            }
+            finally
+            {
+                if (root != null)
+                {
+                    Object.Destroy(root);
+                }
+            }
+        }
+
+        [UnityTest]
         public IEnumerator Level1_MinionsClimbToGateBreakItAndThenEverythingStops()
         {
 #if UNITY_EDITOR
@@ -135,6 +183,13 @@ namespace CyberWizard.Tests
                     Assert.That(fragment.GetComponent<MeshCollider>().convex, Is.True);
                     Assert.That(fragment.interpolation, Is.EqualTo(RigidbodyInterpolation.Interpolate), "慢動作中碎片應開啟插值。");
                 }
+
+                // 碎片不作為射程圈投影地面，並有清除元件。先暫停清除，檢查完落點後再恢復。
+                Assert.That(shatter.FragmentRoot.GetComponent<RangeIndicatorIgnored>(), Is.Not.Null);
+                var cleanup = shatter.FragmentRoot.GetComponent<ShatterFragmentCleanup>();
+                Assert.That(cleanup, Is.Not.Null);
+                Assert.That(cleanup.KillHeight, Is.LessThan(-15f), "清除高度應低於下層地面。");
+                cleanup.enabled = false;
                 Assert.That(GameObject.Find("Gate_Pillar_West"), Is.Not.Null);
                 Assert.That(maxSpawnDistance, Is.LessThan(8f), "敵人應從左下角道路生成。");
                 Assert.That(lowestY, Is.GreaterThan(-6f), "敵人不應進入下層。");
@@ -168,6 +223,17 @@ namespace CyberWizard.Tests
                         Assert.That(Vector3.Distance(pair.Key.transform.position, pair.Value), Is.LessThan(0.001f));
                     }
                 }
+
+                // 恢復清除：保留時間加上縮小時間後，碎片與父物件都應被移除。
+                var fragmentRoot = shatter.FragmentRoot.gameObject;
+                cleanup.enabled = true;
+                var cleanupDeadline = Time.realtimeSinceStartup + 20f;
+                while (fragmentRoot != null && Time.realtimeSinceStartup < cleanupDeadline)
+                {
+                    yield return null;
+                }
+
+                Assert.That(fragmentRoot == null, Is.True, "碎片應在保留時間後縮小並移除。");
             }
             finally
             {

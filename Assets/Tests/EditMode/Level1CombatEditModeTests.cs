@@ -102,6 +102,103 @@ namespace CyberWizard.Tests
         }
 
         [Test]
+        public void DefenseZone_ContainsPointUsesLocalHorizontalPolygon()
+        {
+            // L 形（凹多邊形），逆時針。
+            var polygon = new List<Vector2>
+            {
+                new Vector2(0f, 0f), new Vector2(4f, 0f), new Vector2(4f, 2f),
+                new Vector2(2f, 2f), new Vector2(2f, 4f), new Vector2(0f, 4f)
+            };
+            Assert.That(CyberWizard.Gameplay.Level.DefenseZone.PolygonContains(polygon, new Vector2(1f, 1f)), Is.True);
+            Assert.That(CyberWizard.Gameplay.Level.DefenseZone.PolygonContains(polygon, new Vector2(3f, 1f)), Is.True);
+            Assert.That(CyberWizard.Gameplay.Level.DefenseZone.PolygonContains(polygon, new Vector2(3f, 3f)), Is.False, "L 形缺角處在外。");
+            Assert.That(CyberWizard.Gameplay.Level.DefenseZone.PolygonContains(polygon, new Vector2(-1f, 1f)), Is.False);
+            polygon.Reverse();
+            Assert.That(CyberWizard.Gameplay.Level.DefenseZone.PolygonContains(polygon, new Vector2(1f, 3f)), Is.True, "順時針也能判斷。");
+            Assert.That(CyberWizard.Gameplay.Level.DefenseZone.PolygonContains(polygon.GetRange(0, 2), Vector2.zero), Is.False, "少於 3 點視為無效。");
+
+            var zoneObject = new GameObject("Zone", typeof(MeshFilter), typeof(MeshRenderer), typeof(LineRenderer));
+            try
+            {
+                var zone = zoneObject.AddComponent<CyberWizard.Gameplay.Level.DefenseZone>();
+                for (var index = 0; index < 4; index++)
+                {
+                    zone.SetBoundaryPoint(index, Vector2.zero);
+                }
+
+                // boundary 預設為空：SetBoundaryPoint 對不存在的索引不做事。
+                Assert.That(zone.Boundary.Count, Is.EqualTo(0));
+                Assert.That(zone.ContainsPoint(Vector3.zero), Is.False);
+            }
+            finally
+            {
+                Object.DestroyImmediate(zoneObject);
+            }
+        }
+
+        [Test]
+        public void ChevronStrip_FadeShrinksArrowsNearBothEnds()
+        {
+            var points = new[] { Vector3.zero, new Vector3(0f, 0f, 20f) };
+            var settings = ChevronStrip.Settings.Default;
+            settings.Spacing = 2f;
+            settings.Lift = 0f;
+            settings.FadeDistance = 4f;
+            var vertices = new List<Vector3>();
+            var triangles = new List<int>();
+
+            // 中心 1, 3, ..., 19：比例 0.25, 0.75, 1, ..., 1, 0.75, 0.25。
+            var count = ChevronStrip.Build(points, settings, vertices, triangles);
+            Assert.That(count, Is.EqualTo(10));
+
+            float WidthOf(int chevron) => vertices[chevron * 6 + 1].x - vertices[chevron * 6 + 5].x;
+            Assert.That(WidthOf(0), Is.EqualTo(settings.Width * 0.25f).Within(0.0001f), "起點附近的箭頭縮小。");
+            Assert.That(WidthOf(1), Is.EqualTo(settings.Width * 0.75f).Within(0.0001f));
+            Assert.That(WidthOf(4), Is.EqualTo(settings.Width).Within(0.0001f), "中段箭頭維持原大小。");
+            Assert.That(WidthOf(9), Is.EqualTo(settings.Width * 0.25f).Within(0.0001f), "終點附近的箭頭縮小。");
+
+            // 剛好在端點上的箭頭（比例 0）不產生網格。
+            settings.Offset = -1f;
+            Assert.That(ChevronStrip.Build(points, settings, vertices, triangles), Is.EqualTo(9));
+            Assert.That(ChevronStrip.FadeScale(0f, 20f, 4f), Is.EqualTo(0f));
+            Assert.That(ChevronStrip.FadeScale(10f, 20f, 0f), Is.EqualTo(1f), "淡入淡出距離 0 時不縮放。");
+        }
+
+        [Test]
+        public void ChevronStrip_FollowSlopeTiltsArrowsAlongSegment()
+        {
+            // 每前進 10 上升 1。
+            var points = new[] { Vector3.zero, new Vector3(0f, 1f, 10f) };
+            var settings = ChevronStrip.Settings.Default;
+            settings.Spacing = 2f;
+            settings.Lift = 0f;
+            var vertices = new List<Vector3>();
+            var triangles = new List<int>();
+
+            ChevronStrip.Build(points, settings, vertices, triangles);
+            var flatTip = vertices[0];
+            var flatTail = vertices[1];
+            Assert.That(flatTip.y, Is.EqualTo(flatTail.y).Within(0.0001f), "預設平放：尖端與翼端同高。");
+
+            settings.FollowSlope = true;
+            ChevronStrip.Build(points, settings, vertices, triangles);
+            var tip = vertices[0];
+            var tail = vertices[1];
+            Assert.That(tip.y, Is.GreaterThan(tail.y), "上坡時尖端高於翼端。");
+            var slope = (tip.y - tail.y) / (tip.z - tail.z);
+            Assert.That(slope, Is.EqualTo(0.1f).Within(0.0001f), "傾斜角度與線段坡度相同。");
+            Assert.That(vertices[1].y, Is.EqualTo(vertices[5].y).Within(0.0001f), "左右方向維持水平。");
+            for (var index = 0; index < triangles.Count; index += 3)
+            {
+                var a = vertices[triangles[index]];
+                var b = vertices[triangles[index + 1]];
+                var c = vertices[triangles[index + 2]];
+                Assert.That(Vector3.Cross(b - a, c - a).y, Is.GreaterThan(0f), "傾斜後正面仍朝上。");
+            }
+        }
+
+        [Test]
         public void ChevronStrip_OffsetShiftsArrowsForwardAndWrapsEverySpacing()
         {
             var points = new[] { Vector3.zero, new Vector3(0f, 0f, 10f) };
@@ -166,6 +263,36 @@ namespace CyberWizard.Tests
                 Object.DestroyImmediate(ground);
                 Object.DestroyImmediate(block);
                 Object.DestroyImmediate(actor);
+            }
+        }
+
+        [Test]
+        public void GroundRangeIndicator_SkipsSurfacesMarkedIgnored()
+        {
+            var ground = GameObject.CreatePrimitive(PrimitiveType.Cube);
+            var houses = new GameObject("Houses");
+            var house = GameObject.CreatePrimitive(PrimitiveType.Cube);
+            try
+            {
+                // 地面頂面 y = 2；房屋頂面 y = 6，標記掛在父物件上。
+                ground.transform.position = new Vector3(0f, 1.5f, 0f);
+                ground.transform.localScale = new Vector3(40f, 1f, 40f);
+                houses.AddComponent<RangeIndicatorIgnored>();
+                house.transform.SetParent(houses.transform, false);
+                house.transform.position = new Vector3(10f, 4f, 0f);
+                house.transform.localScale = new Vector3(4f, 4f, 4f);
+                Physics.SyncTransforms();
+
+                var hit = GroundRangeIndicator.TryProjectToGround(
+                    new Vector3(10f, 0f, 0f), 20f, 60f, ~0, null, new RaycastHit[16], out var point);
+
+                Assert.That(hit, Is.True);
+                Assert.That(point.y, Is.EqualTo(2f).Within(0.001f), "穿過房屋，投影到下方地面。");
+            }
+            finally
+            {
+                Object.DestroyImmediate(ground);
+                Object.DestroyImmediate(houses);
             }
         }
 

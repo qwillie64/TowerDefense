@@ -4,6 +4,7 @@ namespace CyberWizard.Core
     {
         Starting,
         Ready,
+        Paused,
         Wave,
         Ended,
         Defeat,

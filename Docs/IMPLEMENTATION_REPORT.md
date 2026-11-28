@@ -199,15 +199,15 @@ Level1_Map
 - ~~多段道路在交會處互相重疊，頂面同高，近距離時可能看到 Z-fighting 閃爍~~（2026-11-26（晚） 已改為單一網格、平面投影 UV，重疊處畫面相同，見「道路無縫銜接與鵝卵石路面」一節）。
 - 地圖放大後物件相對變小：俯視全圖時，塔號與閘門的文字標籤在 1080p 下已難以閱讀，塔本身只剩小圓點。這些標籤附在維持原尺寸的物件上，所以沒有放大。
 - 道路寬度不變而地圖放大，道路以外出現大片空地（深灰色地面）。這些空地沒有任何標示，是否可通行尚未定義。
-- 防區只是視覺標示，尚未提供「某個點是否在防區內」的查詢，也沒有和塔建立資料關聯。
-- 防區邊界只能在 Inspector 以數值編輯，沒有 Scene View 的頂點拖曳控制點。邊界自交時不會產生填色，並在 Console 顯示警告。
+- 防區只是視覺標示，沒有和塔建立資料關聯。~~尚未提供「某個點是否在防區內」的查詢~~（2026-11-28 已處理，見「待辦清理：測試修正、視覺與流程改善」）。
+- ~~防區邊界只能在 Inspector 以數值編輯，沒有 Scene View 的頂點拖曳控制點。~~（2026-11-28 已處理，見「待辦清理：測試修正、視覺與流程改善」）新增或刪除頂點仍需在 Inspector 操作。邊界自交時不會產生填色，並在 Console 顯示警告。
 - 道路本身只是可辨識的平面，沒有 NavMesh；敵人路徑與生成點見下一節。原本的入口大門物件已移除。
 - 文字標籤使用內建動態字型，中文字形依賴作業系統的後備字型；在沒有中文字型的平台上可能顯示為方框。
 - 塔的標籤高度固定在塔底上方 8.5，把塔身調到比這更高時，需要手動移動標籤。
 - 從地圖外側的低角度看，北側平台埋在地面下的部分會從外牆底下露出來；俯視與一般斜視角看不到。
 - 攝影機高度為 40，是為了讓陰影落在 URP 的 Shadow Distance 內；若使用 Shadow Distance 為 50 的 Balanced 品質設定，改高攝影機後陰影可能消失。
 - `Level_1` **沒有**加入 Build Settings（`EditorBuildSettings.asset` 有尚未提交的變更，本次沒有修改它）。
-- `Assets/README.md` 與 `Ref/後續開發指南.md` 記載的 EditMode 測試數量（10 項）已與實際不符：新增前實際為 11 項，現在（2026-11-26）EditMode 為 24 項、PlayMode 為 7 項。這兩份文件沒有修改。
+- `Assets/README.md` 與 `Ref/後續開發指南.md` 記載的 EditMode 測試數量（10 項）已與實際不符：新增前實際為 11 項，現在（2026-11-26）EditMode 為 24 項、PlayMode 為 7 項。（2026-11-28 已處理，見「待辦清理：測試修正、視覺與流程改善」）：`Assets/README.md` 已不寫數量；`Ref/後續開發指南.md` 已改為參照本報告。
 
 ### 驗證方式
 
@@ -702,10 +702,10 @@ Level1_Systems         # 新增元件：ResourceWallet、RewardService、Prototy
   - 若之後烘焙光照（產生環境反射），可以把 Metallic 調高。
 - **箭頭**：
   - 兩條路線的起點（出生點到第一個路徑點）完全重疊，那一小段的箭頭顏色較深。
-  - 箭頭平放，沒有跟著 2° 坡度傾斜，只靠高出路面 0.12 避免閃爍。
+  - ~~箭頭平放，沒有跟著 2° 坡度傾斜~~（2026-11-28 已處理，見「待辦清理：測試修正、視覺與流程改善」）。仍靠高出路面 0.12 避免閃爍。
 - **煙霧**：出生點在地圖角落，半徑 9 的煙霧有一部分飄到外牆外的下層上方。（2026-11-26（晚） 半徑改為 18，飄出牆外的部分更多。）
 - **3D 提示**：
-  - 面板會被建築或塔擋住（TextMesh 有深度測試）。
+  - ~~面板會被建築或塔擋住（TextMesh 有深度測試）~~（2026-11-28 已處理，見「待辦清理：測試修正、視覺與流程改善」）。
   - 塔在攝影機背後時看不到面板，只能看 HUD 的提示文字。
   - 中文字形依賴作業系統字型。
 - **既有地圖標籤**：灰盒階段為俯視設計的平放文字（「5號塔」、「防區 5」等），在第三人稱視角下會呈現傾斜或倒轉。
@@ -901,7 +901,7 @@ Assets/
 
 ### 限制與待改善事項
 
-- `Ref/` 中的企劃文件仍使用 `Assets/_Project/...` 路徑。
+- ~~`Ref/` 中的企劃文件仍使用 `Assets/_Project/...` 路徑。~~（2026-11-28 已處理，見「待辦清理：測試修正、視覺與流程改善」）：`Ref/後續開發指南.md` 已更新；其他 `Ref/*.md` 沒有這個路徑，`.docx` 未檢查。
 - 搬移後尚未在使用者的 Unity 編輯器中開啟，確認 Project 視窗與 Inspector 中的引用（**尚未驗證**）。批次模式下的匯入、編譯與測試都正常。
 
 ### 驗證方式
@@ -958,7 +958,7 @@ Assets/
 
 ### 限制與待改善事項
 
-- 箭頭每走完一個間距，起點和終點會各出現、消失一個箭頭，沒有淡入淡出。
+- ~~箭頭每走完一個間距，起點和終點會各出現、消失一個箭頭，沒有淡入淡出。~~（2026-11-28 已處理，見「待辦清理：測試修正、視覺與流程改善」）：改為頭尾縮放（不是透明度）。
 - Bloom 需要 HDR。目前使用的 High Fidelity 品質等級（Balanced 亦同）有開啟 HDR，但 **Performant 等級的 URP 設定關閉了 HDR**：在該等級下顏色會在 1 被截斷，光暈可能消失或變得很弱（**尚未驗證**）。
 - 小地圖攝影機沒有開啟後製，所以小地圖上的箭頭不會發光。
 - 調暗環境光後，Level_1 仍然沒有烘焙光照，金屬度高的材質在暗處會更暗。
@@ -1027,8 +1027,8 @@ Assets/
 | --- | --- |
 | `Scripts/Presentation/GroundRangeIndicator.cs`（新增） | 射程指示元件。`SampleGround`：沿水平圓周平均取 N 點，從擁有者高度 +20 往下 Raycast（最遠 60），取最近的有效碰撞點；沒打到時使用圓心高度。`BuildRing`：由投影點建立環帶。擁有者位置／旋轉或半徑改變、或重新顯示時才重建，所以靜止的塔只在顯示與升級時計算，玩家移動時每幀 25 條 Raycast。`SetAlert(bool)` 切換白色與紅色。 |
 | `Scripts/Presentation/PrototypeRangeCircle.cs`（刪除） | 舊的 `LineRenderer` 平面圓，已沒有任何使用者。 |
-| `Scripts/Gameplay/Towers/FixedTowerCombat.cs` | 射程圈改用 `GroundRangeIndicator`（物件名稱仍為 `Attack Range Circle`，寬度 0.4）。每幀找目標後呼叫 `SetAlert(_target != null)`：目標無效時已重新搜尋整個射程，所以「有目標」就等於「射程內有敵人」。塔被摧毀時恢復白色。 |
-| `Scripts/Gameplay/Player/PrototypePlayerAttack.cs` | `attackRange` 預設值由 3 改為 4.5（之後再改為 9，見修改紀錄）；射程圈改用 `GroundRangeIndicator`（寬度 0.15）。新增 `HasEnemyInRange`：每幀以水平距離檢查 `EnemyAgent.Active` 中是否有存活敵人在射程內。 |
+| `Scripts/Gameplay/Towers/FixedTowerCombat.cs` | 射程圈改用 `GroundRangeIndicator`（物件名稱仍為 `Attack Range Circle`，寬度 0.4，之後統一為 2，見修改紀錄）。每幀找目標後呼叫 `SetAlert(_target != null)`：目標無效時已重新搜尋整個射程，所以「有目標」就等於「射程內有敵人」。塔被摧毀時恢復白色。 |
+| `Scripts/Gameplay/Player/PrototypePlayerAttack.cs` | `attackRange` 預設值由 3 改為 4.5（之後再改為 9，見修改紀錄）；射程圈改用 `GroundRangeIndicator`（寬度 0.15，之後統一為 2，見修改紀錄）。新增 `HasEnemyInRange`：每幀以水平距離檢查 `EnemyAgent.Active` 中是否有存活敵人在射程內。 |
 | `Scripts/Gameplay/Enemies/EnemyAgent.cs` | 新增靜態清單 `EnemyAgent.Active`（`OnEnable` 加入、`OnDisable` 移除，進入 Play Mode 時清空），讓玩家不必引用 `WaveDirector` 就能查詢敵人。 |
 | `Scripts/Presentation/PrototypeMaterialLibrary.cs` | 新增 `RangeIndicator` 角色。 |
 | `Resources/PrototypePalette/RangeIndicator.mat`（新增） | URP Unlit 不透明白色；實際顏色由 `MaterialPropertyBlock` 覆寫。 |
@@ -1036,7 +1036,7 @@ Assets/
 | `Tests/EditMode/Level1CombatEditModeTests.cs` | 新增 2 項：投影會落在方塊頂面與地面、略過可受傷的角色；環帶頂點數、三角形數、高度與內縮距離，以及正面朝上。 |
 | `Tests/PlayMode/Level1CombatPlayModeTests.cs` | 新增 1 項：玩家射程（目前為 9）、25 個投影點貼近腳底、開場為白色；三座塔的射程圈半徑等於塔射程；塔鎖定敵人時轉紅；玩家移到敵人旁邊時轉紅。 |
 
-**Raycast 略過的碰撞體**：觸發器、擁有者自己（玩家本身、塔的基座與塔身），以及父物件上有 `IDamageable` 的物件（敵人、玩家、塔、閘門核心）。其他碰撞體都視為地面，包括建築、牆與閘門柱。
+**Raycast 略過的碰撞體**：觸發器、擁有者自己（玩家本身、塔的基座與塔身）、父物件上有 `IDamageable` 的物件（敵人、玩家、塔、閘門核心），以及父物件上有 `RangeIndicatorIgnored` 標記的物件（目前是 `Buildings` 底下的所有房屋，見下方修改紀錄）。其他碰撞體都視為地面，包括牆與閘門柱。
 
 ### 可調整參數
 
@@ -1045,7 +1045,7 @@ Assets/
 | 參數 | 目前值 | 用途 |
 | --- | --- | --- |
 | `sampleCount` | 25（暫定） | 圓周取樣點數，也就是每次重建的 Raycast 數。 |
-| `width` | 塔 0.4、玩家 0.15（暫定） | 環帶寬度。 |
+| `width` | 2，所有射程圈統一（`GroundRangeIndicator.DefaultWidth`；原本塔 0.4、玩家 0.15） | 環帶寬度，由射程邊緣往內延伸。 |
 | `lift` | 0.2（暫定） | 環帶高於投影點的距離。道路頂面約比地面高 0.1，而道路沒有碰撞，所以需要高於 0.1。 |
 | `rayStartHeight`／`rayLength` | 20／60 | Raycast 起點高度與長度。 |
 | `groundMask` | Everything | 視為地面的圖層；目前專案沒有專用的地面圖層。 |
@@ -1061,10 +1061,10 @@ Assets/
 ### 限制與待改善事項
 
 - 相鄰取樣點跨過高低差（例如平台邊緣）時，兩點之間是直線，環帶會穿過平台側壁，有一小段被遮住；取樣點越少越明顯。
-- 投影點打到建築、牆或閘門柱時，環帶會爬到物件頂面。若只想投影到地面，需要建立地面圖層，並設定 `groundMask`。
+- 房屋已略過（見修改紀錄）；投影點打到牆或閘門柱時，環帶仍會爬到物件頂面。若也要略過這些物件，可在其群組根物件掛上 `RangeIndicatorIgnored`。
 - 玩家的「射程內有敵人」以水平距離判斷，與實際攻擊條件不同：實際攻擊需要以準星瞄準敵人。
 - 環帶材質不是 HDR，紅色射程圈不會產生 Bloom 光暈。
-- 環帶位在半透明防區填色底下時，顏色會被染上藍色。
+- ~~環帶位在半透明防區填色底下時，顏色會被染上藍色。~~（2026-11-28 已處理，見「待辦清理：測試修正、視覺與流程改善」）：`lift` 由 0.2 改為 0.3。
 
 ### 驗證方式
 
@@ -1104,6 +1104,37 @@ Unity 編輯器開著，所以把 `Assets`、`Packages`、`ProjectSettings` 複�
 | PlayMode 測試 | **7 項中 5 項通過**（不含副本中的暫時截圖測試）。失敗的 2 項仍是塔攻擊力數值問題（`FixedTowerProfile.asset` 為 20，測試寫死 10），與本次修改無關。 |
 | 截圖檢查 | 開場俯視畫面中，三座塔的白色射程圈在玩家不在附近時就已顯示；閘門前已沒有文字標籤；玩家射程圈半徑明顯放大為 9。 |
 | 在使用者編輯器中重新載入場景後的狀態、實際遊玩手感 | **尚未驗證** |
+
+**2026-11-28　射程圈寬度統一為 2，投影略過房屋**
+
+- 需求：攻擊範圍線段寬度統一為 2 單位；投影用的 Raycast 忽略房屋。狀態：**已完成**。
+- 寬度：
+  - 修改前：寬度由建立者傳入，塔 0.4、玩家 0.15。修改後：新增常數 `GroundRangeIndicator.DefaultWidth = 2`，作為 `width` 欄位預設值；`Create` 移除寬度參數，`FixedTowerCombat` 與 `PrototypePlayerAttack` 不再各自指定寬度。新增唯讀屬性 `Width`。
+  - 環帶仍由射程邊緣往內延伸，所以射程邊界位置不變：玩家環帶覆蓋半徑 7～9，塔（射程 30）覆蓋 28～30。
+- 略過房屋：
+  - 新增 `Scripts/Presentation/RangeIndicatorIgnored.cs`：沒有任何欄位的標記元件，表示「此物件與子物件的碰撞體不作為射程圈投影的地面」。碰撞本身不受影響，玩家與敵人仍會被房屋擋住。
+  - `GroundRangeIndicator.IsIgnored` 增加 `GetComponentInParent<RangeIndicatorIgnored>()` 檢查；Raycast 穿過房屋，改取下方最近的有效地面點。
+  - `Scenes/Level_1.unity`：在 `Level1_Map/.../Buildings` 群組根物件上加入 `RangeIndicatorIgnored`，涵蓋其下所有 `Building_*`。選擇標記元件而不是新增圖層，是為了不必修改 `TagManager` 與每棟房屋的 Layer；之後新增房屋只要放在 `Buildings` 底下即可。
+  - 沒有新增任何外部套件。
+- 遊戲呈現：射程圈較粗、較容易看清楚；射程圈經過房屋時貼著房屋底下的地面延伸，不再爬上屋頂。從俯視角度看，被房屋蓋住的那一段會被房屋遮住。
+- 限制：牆、閘門柱與管線仍視為地面（沒有要求略過）。寬度 2 時，射程內側 2 單位都被環帶覆蓋，可能遮住較多路面箭頭與防區填色，觀感**尚未驗證**。
+- 測試修改：
+  - EditMode 新增 `GroundRangeIndicator_SkipsSurfacesMarkedIgnored`：父物件有標記的方塊會被穿過，投影點落在下方地面。
+  - PlayMode `RangeIndicators_ProjectToGroundAndTurnRedWhenEnemyInRange` 增加檢查：玩家與三座塔的射程圈寬度皆為 2；場景中的 `Buildings` 有 `RangeIndicatorIgnored`。
+
+**驗證（本項）**
+
+Unity 編輯器開著，所以把 `Assets`、`Packages`、`ProjectSettings` 複製到暫存資料夾，在副本上以批次模式執行；暫時的截圖測試只存在於副本中，副本已刪除。
+
+| 項目 | 結果 |
+| --- | --- |
+| 編譯 | 沒有錯誤。 |
+| EditMode 測試 | **28 項全數通過**（新增 1 項）。 |
+| PlayMode 測試 | **19 項中 15 項通過**；`RangeIndicators_…` 通過。失敗的 4 項與本次修改無關：`Towers_Aim…`、`Upgrade_PlayerNearTower…` 為已知的塔攻擊力數值問題；`Level1_DefeatShowsResultPanel…`、`Level1_VictoryShowsResultPanel…`（結算面板未顯示）在副本中還原本次修改後重跑，結果相同。 |
+| 房屋略過（場景內對照） | 暫時測試把玩家移到 `Building_Central_C1` 旁，使射程圈穿過房屋：有標記時，落在房屋範圍內的 3 個投影點高度約 -1.1（地面）；暫時移除標記後重新投影，同樣 3 點高度約 2.9（屋頂）。 |
+| 截圖檢查 | 俯視截圖中玩家與塔的環帶寬度約為 2 單位；玩家環帶穿過房屋時位於房屋底下，沒有爬上屋頂。 |
+| 開場位置的投影 | 玩家與三座塔在開場位置的射程圈都沒有取樣點落在房屋上，所以開場畫面與修改前只差在寬度。 |
+| 在使用者編輯器中重新載入場景後的狀態、寬度 2 的實際觀感 | **尚未驗證** |
 
 ---
 
@@ -1159,8 +1190,8 @@ Unity 編輯器開著，所以把 `Assets`、`Packages`、`ProjectSettings` 複�
 ### 限制與待改善事項
 
 - 碎片切割使用隨機平面，每次破碎的形狀都不同。
-- 碎片會永久留在場景中，沒有淡出或回收；目前關卡在閘門被打破時就結束，所以沒有影響。若之後閘門破壞後遊戲還要繼續，需要評估碎片對敵人、玩家與射程圈投影的影響（碎片不是 `IDamageable`，射程圈會投影到碎片上）。
-- 少數碎片仍可能越過門往北飛出地圖，並持續往下墜落（測試只要求至少 80% 留在地圖內）。
+- ~~碎片會永久留在場景中，沒有淡出或回收~~（2026-11-28 已處理，見「待辦清理：測試修正、視覺與流程改善」）：10 遊戲秒後縮小消失，射程圈投影也會略過碎片。以下為原紀錄：目前關卡在閘門被打破時就結束，所以沒有影響。若之後閘門破壞後遊戲還要繼續，需要評估碎片對敵人、玩家與射程圈投影的影響（碎片不是 `IDamageable`，射程圈會投影到碎片上）。
+- 少數碎片仍可能越過門往北飛出地圖（測試只要求至少 80% 留在地圖內）；~~並持續往下墜落~~（2026-11-28 已處理，見「待辦清理：測試修正、視覺與流程改善」）：低於閘門 30 單位即移除。
 - 切面材質沿用 `Blockout_Brass`，沒有另外製作斷面質感。
 - 沒有破碎音效；OpenFracture 附帶的音效沒有使用。
 - 套件以 git URL 安裝：在新電腦上第一次開啟專案時需要安裝 git，並能連到 GitHub。
@@ -1501,9 +1532,9 @@ Unity 編輯器開著，所以把 `Assets`、`Packages`、`ProjectSettings` 複�
 - 沒有關卡解鎖或進度存檔；第 1 關永遠開放。
 - 場景切換為同步 `LoadScene`，沒有讀取畫面或轉場效果；`Level_1` 載入時間較長時畫面會短暫停住。
 - 選單畫面為基本色塊與內建字型，尚未有美術設計；中文字形依賴作業系統字型後援（與既有 `TextMesh` 標籤相同），在非 Windows 平台的顯示**尚未驗證**。
-- 結算面板出現後 HUD（左上角狀態）仍會顯示；`Level_1` 若從編輯器直接開啟遊玩，「確認」仍會前往 `LevelSelect`。
+- ~~結算面板出現後 HUD（左上角狀態）仍會顯示~~（2026-11-28 已處理，見「待辦清理：測試修正、視覺與流程改善」）；`Level_1` 若從編輯器直接開啟遊玩，「確認」仍會前往 `LevelSelect`。
 - 慢動作延遲期間（約 2 秒）玩家仍可攻擊或升級塔，與先前的設計相同。
-- 「離開」在建置版本中呼叫 `Application.Quit()`，WebGL 平台上此呼叫沒有作用。
+- ~~「離開」在建置版本中呼叫 `Application.Quit()`，WebGL 平台上此呼叫沒有作用。~~（2026-11-28 已處理，見「待辦清理：測試修正、視覺與流程改善」）：WebGL 建置版本隱藏「離開」按鈕。
 - 實際以滑鼠點擊按鈕、鍵盤導覽與不同解析度下的版面**尚未驗證**（批次模式無法實際操作與檢視畫面）。
 
 ### 驗證方式
@@ -1574,7 +1605,7 @@ Unity 編輯器開著，所以把 `Assets`、`Packages`、`ProjectSettings` 複�
 - 暫停只在 `Wave` 狀態有效；`Ready`（目前 `startOnPlay` 開啟，會立刻進入 `Wave`）與 `Starting`（WebGL 讀取波次資料中）時按 Esc 不會暫停。
 - 暫停中若閘門被打破或最後一個敵人死亡，`GateDefenseFlow` 只在 `Wave` 時處理這些事件，結果會被忽略。目前 `timeScale` 為 0 時敵人、塔與投射物都不會移動，實際上不會發生，但之後若加入不受時間倍率影響的傷害來源需要處理。
 - 在 Unity 編輯器的 Game 視窗中，按 Esc 本身也會讓編輯器釋放游標；繼續後若游標沒有重新鎖定，需點一下 Game 視窗（建置版本不受影響）。
-- 「中離」沒有確認對話框，按下立即離開，關卡進度不保留。
+- ~~「中離」沒有確認對話框，按下立即離開~~（2026-11-28 已處理，見「待辦清理：測試修正、視覺與流程改善」）。關卡進度不保留。
 - 暫停面板沒有設定選項（音量、靈敏度等）。
 - 實際按 Esc、滑鼠點擊按鈕、版面與「←」字元的顯示**尚未驗證**（批次模式無法實際操作與檢視畫面；測試直接呼叫 `TogglePause()` 與 `onClick.Invoke()`）。
 
@@ -1590,3 +1621,116 @@ Unity 編輯器開著，所以把 `Assets`、`Packages`、`ProjectSettings` 複�
 | PlayMode：`Level1_DefeatShowsResultPanelAndRetryReloadsLevel`（擴充） | 通過：失敗後呼叫 `TogglePause()` 不會進入暫停，也不會顯示暫停面板。 |
 | 全部測試 | EditMode **28 項全數通過**。PlayMode 共 18 項：`GameFlowPlayModeTests` 8 項全數通過（修正游標檢查後單獨重跑）；其餘 10 項中 8 項通過，失敗的 2 項是之前就已失敗的 `Towers_AimFireRivetsKillEnemiesAndGrantEnergy`、`Upgrade_PlayerNearTowerUpgradesEachPartWithEnergy`（測試寫死攻擊力 10），與本次修改無關。 |
 | 實際按鍵與滑鼠操作、畫面版面 | **尚未驗證** |
+
+---
+
+## 待辦清理：測試修正、視覺與流程改善
+
+- 紀錄日期：2026-11-28
+- 狀態：**已完成**（17 項）；在使用者編輯器中的實際觀感與操作**尚未驗證**。
+- 需求來源：從「尚未完成項目」中列出 20 項可直接處理的工作，使用者確認執行其中 17 項（不做：射程圈跨平台邊緣補點、紅色射程圈 Bloom、塔被摧毀的外觀變化）。
+- 沒有新增任何外部套件。
+
+### 功能目的
+
+讓測試全部通過，修正合併時遺失的結算事件，並處理已知的視覺與流程限制，讓後續修改有可靠的驗證基準。
+
+### 實作方式
+
+**測試與程式碼狀態**
+
+| 項目 | 修改 |
+| --- | --- |
+| 結算面板不出現（錯誤修正） | `GateDefenseFlow.ChangePhase()` 在 commit `cfabbd5`（2026-11-27）中遺失 `PhaseChanged?.Invoke(phase)`，`LevelResultPanel` 收不到勝敗事件，勝利或失敗後面板永遠不顯示。已補回。`Level1_Victory…`、`Level1_Defeat…` 兩項 PlayMode 測試因此恢復通過。 |
+| 塔數值測試 | `Towers_AimFire…` 與 `Upgrade_PlayerNearTower…` 原本寫死攻擊力 10、攻速 1、射程 24 等值。改為以 `tower.Profile`（`FixedTowerProfile` 資產）的 `GetDamage`／`GetShotsPerSecond`／`GetAttackRange`／`GetMaxHealth`／`TryGetUpgradeCost` 計算期望值；砲塔升級改為迴圈升到 `GetMaxLevel`。之後調整資產數值時不必改測試。EditMode 的數值表測試使用程式預設值，未修改。 |
+| `GamePhase.cs` | 工作區中有一處未提交的修改（新增 `GamePhase.Paused`），HEAD 的 `GateDefenseFlow`、`GateDefenseHud`、`LevelPausePanel` 都用到它，沒有它 HEAD 無法編譯。本次沒有修改此檔，只確認它與其他程式一起可以編譯；**尚未提交**。 |
+| 文件 | `Ref/後續開發指南.md`：開頭加上註記（VerticalSlice、Builder、UI Toolkit HUD 已刪除，路徑已搬到 `Assets/`），仍存在的路徑改為 `Assets/Scripts`、`Assets/Tests`，已刪除的檔案標示「已刪除」，測試數量改為參照本報告。企劃內容未修改。`Assets/README.md` 已不寫測試數量，不需修改。 |
+
+**射程圈與碎片**
+
+| 項目 | 修改 |
+| --- | --- |
+| 射程圈被防區染藍 | 防區填色在平台頂面 +0.2，`GroundRangeIndicator.lift` 原本也是 0.2，兩者同高，半透明填色會疊在環帶上。`lift` 改為 0.3，環帶高於填色，深度測試會擋下填色。環帶仍蓋在路線箭頭（+0.12）之上，與修改前相同。 |
+| 碎片不作為投影地面 | `GateShatterOnDestroyed` 破碎完成後，在碎片父物件加上 `RangeIndicatorIgnored`。 |
+| 碎片清除（新增 `ShatterFragmentCleanup`） | 由 `GateShatterOnDestroyed` 掛在碎片父物件上。每幀檢查碎片重心：低於「閘門高度 − `fragmentKillDepth`」立即移除；經過 `fragmentLifetime` 遊戲秒後，所有碎片在 `fragmentShrinkDuration` 內縮小到 0，再移除父物件。計時使用 `Time.deltaTime`，會跟著結束慢動作放慢。 |
+
+**路線箭頭**
+
+| 項目 | 修改 |
+| --- | --- |
+| 頭尾淡入淡出 | `ChevronStrip.Settings.FadeDistance`：箭頭中心離折線起點或終點小於此距離時，依比例縮小（`FadeScale`），比例 0 時不產生網格。配合流動動畫，新箭頭從起點逐漸放大，到終點逐漸縮小消失。箭頭材質是 URP Unlit，不讀頂點色，無法逐箭頭調透明度，所以以縮放代替。 |
+| 隨坡度傾斜 | `ChevronStrip.Settings.FollowSlope`：箭頭的前後方向改用線段的 3D 方向，左右方向維持水平。路線點之間是直線內插，所以傾斜角度是路線點連線的坡度。 |
+| 預設值 | 兩個設定在 `ChevronStrip.Settings.Default` 中關閉（既有測試行為不變）；`WavePathPreview` 新增 Inspector 欄位 `followSlope`（預設開）與 `fadeDistance`（預設 3.5）。 |
+
+**升級提示**
+
+- 新增 `Assets/Shaders/WorldOverlay.shader`（`CyberWizard/WorldOverlay`）：`ZTest Always`、`ZWrite Off`、`Queue = Overlay`、Alpha 混合；顏色為 `_BaseColor` × `_MainTex` 的 Alpha × 頂點色（`_UseVertexColor` 開啟時）。
+- `Materials/Level1Fx/Fx_PromptBackground.mat` 改用此 Shader（`_BaseColor` 不變），`m_CustomRenderQueue` 改為 -1（使用 Shader 的 Overlay 佇列）。
+- `TowerUpgradePrompt` 在執行時以背景材質的 Shader 建立文字材質：貼上 `LegacyRuntime` 字型貼圖、開啟頂點色（rich text 顏色）、佇列比背景高 1。動態字型重建貼圖時（`Font.textureRebuilt`）重新指定。背景材質不是此 Shader 時記錄警告並沿用字型預設材質。
+
+**防區**
+
+- `DefenseZone.ContainsPoint(Vector3)`：把世界座標轉為防區本地座標，只比較 XZ，以射線交點計數法判斷（`PolygonContains`，凹多邊形與順時針／逆時針皆可）。剛好在邊上的點結果不保證。
+- `DefenseZone.SetBoundaryPoint(int, Vector2)`：修改單一頂點並重建填色與外框。
+- 新增 `Assets/Editor/DefenseZoneEditor.cs`（新的 `CyberWizard.Editor` 組件，只在編輯器中）：選取防區時，Scene View 每個頂點顯示可拖曳的球形控制點（`Handles.Slider2D`，限制在防區本地水平面）與頂點編號，支援 Undo。新增或刪除頂點仍在 Inspector 操作。
+
+**遊戲流程與 UI**
+
+| 項目 | 修改 |
+| --- | --- |
+| 結算時隱藏 HUD | `GateDefenseHud` 新增可選欄位 `resultPanel` 與 `IsVisible`；結算面板顯示時 `OnGUI` 不繪製任何內容（準星、狀態欄、提示）。`Level_1` 場景已連上 `Result Canvas` 上的 `LevelResultPanel`。 |
+| WebGL 隱藏「離開」 | `MainMenuController.QuitSupported`：`Application.platform` 為 `WebGLPlayer` 時為 false，`Awake` 中隱藏「離開」按鈕。 |
+| 中離確認 | `LevelPausePanel`：按「中離」時先顯示確認視窗。確認視窗在第一次需要時，於執行時複製暫停視窗（`panelRoot` 底下包含「中離」按鈕的子物件，即 `Window`），標題改為確認訊息、刪除「重新開始」，「繼續」與「中離」改為「取消」與「確定中離」，外觀與暫停視窗相同。確認視窗開啟時按 Esc 或「取消」回到暫停視窗（仍在暫停中）；「確定中離」才載入選關。找不到對應結構時記錄警告並直接中離。 |
+
+### 可調整參數
+
+| 元件／參數 | 目前值 | 用途 |
+| --- | --- | --- |
+| `GroundRangeIndicator.lift` | 0.3（原 0.2） | 環帶高於投影點的距離；需高於防區填色（+0.2）。 |
+| `GateShatterOnDestroyed.fragmentLifetime` | 10 遊戲秒（暫定） | 碎片保留時間。 |
+| `GateShatterOnDestroyed.fragmentShrinkDuration` | 1.5 遊戲秒（暫定） | 縮小到消失的時間。 |
+| `GateShatterOnDestroyed.fragmentKillDepth` | 30（暫定） | 低於閘門此距離即視為掉出地圖；下層地面約 −15。 |
+| `WavePathPreview.followSlope` | 開 | 箭頭隨坡度傾斜。 |
+| `WavePathPreview.fadeDistance` | 3.5（暫定，等於箭頭間距） | 頭尾縮放距離；0 表示不縮放。 |
+| `LevelPausePanel.confirmBeforeQuit` | 開 | 中離前是否確認。 |
+| `LevelPausePanel.confirmMessage`／`confirmQuitLabel`／`cancelQuitLabel` | 「確定要中離嗎？目前關卡進度不會保留。」／「確定中離」／「取消」 | 確認視窗文字。 |
+| `GateDefenseHud.resultPanel` | 場景中的 `LevelResultPanel` | 結算時隱藏 HUD；未設定時 HUD 永遠顯示。 |
+
+### 遊戲呈現
+
+- 勝利或失敗約 2 秒後出現結算面板（修正前不會出現），同時左上角狀態欄與準星消失。
+- 防區內的射程圈為純白，不再偏藍。
+- 路線箭頭在出生點附近從小逐漸放大，到閘門前逐漸縮小；在斜坡上跟著坡度傾斜（2° 坡度下肉眼不明顯）。
+- 塔的升級提示即使被建築或塔擋住也會顯示在最上層。
+- 閘門碎片噴散約 10 遊戲秒（慢動作下約 40 秒真實時間）後縮小消失；掉出地圖的碎片立即移除。實際上結算面板出現後玩家通常會離開場景，碎片清除多半看不到。
+- 暫停中按「中離」先出現確認視窗。
+- WebGL 版本的初始畫面沒有「離開」按鈕。
+- 編輯器中選取防區時，可直接在 Scene View 拖曳邊界頂點。
+
+### 限制與待改善事項
+
+- 升級提示永遠在最上層，被擋住時也看得到，所以玩家可能看到牆後塔的提示（目前提示只在玩家靠近且視角指向塔時出現）。小地圖攝影機也會畫出此提示（若其 Culling Mask 包含提示所在圖層，**尚未驗證**）。
+- `WorldOverlay` Shader 只在編輯器（Windows）驗證過；WebGL 建置後的顯示**尚未驗證**。
+- 箭頭頭尾是縮放而非透明度變化。
+- 「中離」確認視窗依賴暫停面板的結構（按鈕在 `panelRoot` 的同一個子物件下）；修改暫停面板結構時需確認仍能找到按鈕。
+- WebGL 隱藏「離開」後，初始畫面只剩「開始」按鈕；若「開始」原本與「離開」並排或有版面配置，位置不會自動調整（**尚未驗證**實際版面）。
+- 防區查詢只比較水平位置；尚未把塔與防區建立資料關聯。
+- 防區頂點的新增與刪除仍需在 Inspector 操作。
+- 碎片清除的數值為暫定值。
+- `GamePhase.cs` 的必要修改尚未提交。
+
+### 驗證方式
+
+Unity 編輯器開著，所以把 `Assets`、`Packages`、`ProjectSettings` 複製到暫存資料夾，在副本上以 Unity 2022.3.62f3 批次模式執行。暫時的截圖測試只存在於副本中，副本已刪除。
+
+| 項目 | 結果 |
+| --- | --- |
+| 編譯 | 沒有錯誤或警告（含新的 `CyberWizard.Editor` 組件）。 |
+| EditMode 測試 | **31 項全數通過**。新增 3 項：`DefenseZone_ContainsPointUsesLocalHorizontalPolygon`、`ChevronStrip_FadeShrinksArrowsNearBothEnds`、`ChevronStrip_FollowSlopeTiltsArrowsAlongSegment`。 |
+| PlayMode 測試 | **20 項全數通過**，原本失敗的 4 項都已通過。新增 `FragmentCleanup_RemovesFragmentsBelowKillHeightAndShrinksTheRest`；擴充：勝敗後 HUD 隱藏、「離開」按鈕在編輯器中顯示、中離確認／取消／Esc 取消／確定中離、每座塔在同編號防區內且閘門不在任何防區內、碎片有 `RangeIndicatorIgnored` 與清除元件且最後被移除。 |
+| 截圖：射程圈顏色 | 俯視 5 號塔，防區內 14 個環帶取樣點中 13 點為純白 (1, 1, 1)，1 點為 (0.94, 0.98, 1)，可能落在「防區 5」文字上；修改前的截圖為淡藍色。 |
+| 截圖：升級提示 | 在攝影機與提示之間放一個大方塊，提示（背景、白字、紅色花費）仍完整顯示在方塊上方。 |
+| 截圖：路線箭頭 | 出生點附近的第一個箭頭明顯較小，之後逐漸放大到原尺寸。 |
+| Scene View 拖曳防區頂點、Undo | **尚未驗證**（批次模式無法操作 Scene View）。 |
+| WebGL 建置後的「離開」按鈕隱藏與 Overlay Shader | **尚未驗證**。 |
+| 實際遊玩觀感（箭頭傾斜、碎片消失、確認視窗版面） | **尚未驗證** |

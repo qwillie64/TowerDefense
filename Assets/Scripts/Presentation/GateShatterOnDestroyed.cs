@@ -30,6 +30,16 @@ namespace CyberWizard.Presentation
         [SerializeField, Min(0f), Tooltip("把爆炸點往下移的量，數值越大碎片越往上噴。")]
         private float upwardsModifier = 1.5f;
 
+        [Header("碎片清除（暫定值）")]
+        [SerializeField, Min(0f), Tooltip("破碎後碎片保留的遊戲秒數，之後開始縮小消失。會跟著結束慢動作放慢。")]
+        private float fragmentLifetime = 10f;
+
+        [SerializeField, Min(0.01f), Tooltip("碎片縮小到消失所需的遊戲秒數。")]
+        private float fragmentShrinkDuration = 1.5f;
+
+        [SerializeField, Min(0f), Tooltip("碎片重心低於「本物件高度 − 此值」時視為掉出地圖，立即移除。需低於下層地面（約 −15）。")]
+        private float fragmentKillDepth = 30f;
+
         private Fracture _fracture;
         private Vector3 _explosionCenter;
 
@@ -115,6 +125,13 @@ namespace CyberWizard.Presentation
                         upwardsModifier,
                         ForceMode.VelocityChange);
                 }
+
+                // 碎片不是地面：射程圈投影會穿過碎片。
+                FragmentRoot.gameObject.AddComponent<RangeIndicatorIgnored>();
+                FragmentRoot.gameObject.AddComponent<ShatterFragmentCleanup>().Initialize(
+                    fragmentLifetime,
+                    fragmentShrinkDuration,
+                    transform.position.y - fragmentKillDepth);
             }
         }
     }

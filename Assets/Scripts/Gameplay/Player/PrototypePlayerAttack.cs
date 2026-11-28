@@ -120,8 +120,7 @@ namespace CyberWizard.Gameplay.Player
             _rangeIndicator = GroundRangeIndicator.Create(
                 player.transform,
                 "Player Attack Range Circle",
-                attackRange,
-                0.15f);
+                attackRange);
         }
     }
 }

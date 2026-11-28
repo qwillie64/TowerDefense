@@ -7,7 +7,7 @@ namespace CyberWizard.Presentation
     /// <summary>
     /// 玩家靠近固定防禦塔時，在塔旁邊（攝影機視角的左側或右側）顯示的 3D 升級提示：
     /// 列出三個部位的目前等級、升級後數值與花費，能量不足的花費以紅色顯示；
-    /// 提示面板永遠面向攝影機（塔的射程圈由 FixedTowerCombat 持續顯示，與本提示無關）。
+    /// 提示面板永遠面向攝影機，且畫在最上層不會被建築或塔擋住（塔的射程圈由 FixedTowerCombat 持續顯示，與本提示無關）。
     /// 文字使用內建 TextMesh 與 LegacyRuntime 字型（不需要 TextMeshPro）。
     /// </summary>
     [DisallowMultipleComponent]
@@ -16,9 +16,15 @@ namespace CyberWizard.Presentation
         private const string AffordableColor = "#ffd75e";
         private const string UnaffordableColor = "#ff6b6b";
         private const string MutedColor = "#9aa0a6";
+        private const string OverlayShaderName = "CyberWizard/WorldOverlay";
+
+        private static readonly int BaseColorId = Shader.PropertyToID("_BaseColor");
+        private static readonly int MainTexId = Shader.PropertyToID("_MainTex");
+        private static readonly int UseVertexColorId = Shader.PropertyToID("_UseVertexColor");
 
         [SerializeField] private TowerUpgradeInteractor interactor;
-        [SerializeField, Tooltip("面板背景（Quad），會依文字大小縮放。")] private Material backgroundMaterial;
+        [SerializeField, Tooltip("面板背景（Quad），會依文字大小縮放。使用 CyberWizard/WorldOverlay 時，面板永遠畫在最上層，不會被建築擋住。")]
+        private Material backgroundMaterial;
 
         [Header("版面（暫定值）")]
         [SerializeField, Min(0f), Tooltip("面板離塔外緣（朝玩家方向）的距離。")]
@@ -36,6 +42,8 @@ namespace CyberWizard.Presentation
         private Transform _panel;
         private TextMesh _text;
         private MeshRenderer _textRenderer;
+        private Material _textMaterial;
+        private Font _font;
         private Transform _background;
         private Camera _camera;
         private FixedTowerCombat _shownTower;
@@ -265,7 +273,9 @@ namespace CyberWizard.Presentation
             _textRenderer = textObject.GetComponent<MeshRenderer>();
             if (font != null)
             {
-                _textRenderer.sharedMaterial = font.material;
+                _font = font;
+                _textRenderer.sharedMaterial = CreateTextMaterial(font);
+                Font.textureRebuilt += HandleFontTextureRebuilt;
             }
 
             _textRenderer.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
@@ -285,6 +295,46 @@ namespace CyberWizard.Presentation
             backgroundRenderer.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
             backgroundRenderer.receiveShadows = false;
             _background = background.transform;
+        }
+
+        /// <summary>
+        /// 文字材質：背景材質使用 CyberWizard/WorldOverlay（永遠畫在最上層）時，以同一個 Shader 建立文字材質，
+        /// 貼上字型貼圖並開啟頂點色（TextMesh 的 rich text 顏色）；佇列比背景高 1，確保文字畫在背景之上。
+        /// 背景不是該 Shader 時沿用字型預設材質（會被建築擋住）。
+        /// </summary>
+        private Material CreateTextMaterial(Font font)
+        {
+            var overlayShader = backgroundMaterial != null ? backgroundMaterial.shader : null;
+            if (overlayShader == null || !overlayShader.name.Equals(OverlayShaderName))
+            {
+                Debug.LogWarning($"TowerUpgradePrompt 的背景材質不是 {OverlayShaderName}，提示會被建築擋住。", this);
+                return font.material;
+            }
+
+            _textMaterial = new Material(overlayShader) { name = "Tower Upgrade Prompt Text (Overlay)" };
+            _textMaterial.SetColor(BaseColorId, Color.white);
+            _textMaterial.SetFloat(UseVertexColorId, 1f);
+            _textMaterial.SetTexture(MainTexId, font.material.mainTexture);
+            _textMaterial.renderQueue = backgroundMaterial.renderQueue + 1;
+            return _textMaterial;
+        }
+
+        private void HandleFontTextureRebuilt(Font font)
+        {
+            // 動態字型新增字元時可能重建貼圖，需要重新指定。
+            if (font == _font && _textMaterial != null)
+            {
+                _textMaterial.SetTexture(MainTexId, font.material.mainTexture);
+            }
+        }
+
+        private void OnDestroy()
+        {
+            Font.textureRebuilt -= HandleFontTextureRebuilt;
+            if (_textMaterial != null)
+            {
+                Destroy(_textMaterial);
+            }
         }
 
         private void FitBackground()

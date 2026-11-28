@@ -102,12 +102,15 @@ namespace CyberWizard.Tests
             var towers = Object.FindObjectsOfType<FixedTowerCombat>();
             Assert.That(towers.Length, Is.EqualTo(3));
             Assert.That(wallet.Balance, Is.EqualTo(0));
+            // 數值以場景使用的 FixedTowerProfile 資產為準，不寫死，調整資產時測試不必跟著改。
             foreach (var tower in towers)
             {
-                Assert.That(tower.MaxHealth, Is.EqualTo(200f));
-                Assert.That(tower.Damage, Is.EqualTo(10f));
-                Assert.That(tower.ShotsPerSecond, Is.EqualTo(1f));
-                Assert.That(tower.AttackRange, Is.EqualTo(24f).Within(0.001f), "射程 8 × 倍率 3。");
+                var profile = tower.Profile;
+                Assert.That(profile, Is.Not.Null, $"{tower.name} 缺少 FixedTowerProfile。");
+                Assert.That(tower.MaxHealth, Is.EqualTo(profile.GetMaxHealth(1)).Within(0.001f));
+                Assert.That(tower.Damage, Is.EqualTo(profile.GetDamage(1)).Within(0.001f));
+                Assert.That(tower.ShotsPerSecond, Is.EqualTo(profile.GetShotsPerSecond(1)).Within(0.001f));
+                Assert.That(tower.AttackRange, Is.EqualTo(profile.GetAttackRange(1)).Within(0.001f), "企劃射程 × 倍率。");
                 Assert.That(tower.MuzzleFlash, Is.Not.Null);
                 Assert.That(tower.TurretPivot, Is.Not.Null);
             }
@@ -213,36 +216,44 @@ namespace CyberWizard.Tests
             wallet.Add(1000);
             interactor.RefreshCurrentTower();
 
-            // 砲塔：40/80/130/200，攻擊 +4/+6/+8/+12，攻速 +0.2/+0.2/+0.4/+0.8。
-            Assert.That(interactor.TryUpgrade(TowerPart.Turret), Is.EqualTo(TowerUpgradeResult.Upgraded));
-            Assert.That(tower.Damage, Is.EqualTo(14f).Within(0.001f));
-            Assert.That(tower.ShotsPerSecond, Is.EqualTo(1.2f).Within(0.001f));
-            Assert.That(wallet.Balance, Is.EqualTo(960));
-            for (var index = 0; index < 3; index++)
+            // 期望值由場景使用的 FixedTowerProfile 資產計算，不寫死數值。
+            var profile = tower.Profile;
+            var expectedBalance = 1000;
+            var maxTurretLevel = profile.GetMaxLevel(TowerPart.Turret);
+            Assert.That(maxTurretLevel, Is.GreaterThan(1), "砲塔至少要能升一級，測試才有意義。");
+
+            // 砲塔：每次升級扣除對應花費，攻擊與攻速依升級表增加。
+            for (var level = 1; level < maxTurretLevel; level++)
             {
+                Assert.That(profile.TryGetUpgradeCost(TowerPart.Turret, level, out var cost), Is.True);
                 Assert.That(interactor.TryUpgrade(TowerPart.Turret), Is.EqualTo(TowerUpgradeResult.Upgraded));
+                expectedBalance -= cost;
+                Assert.That(tower.GetLevel(TowerPart.Turret), Is.EqualTo(level + 1));
+                Assert.That(tower.Damage, Is.EqualTo(profile.GetDamage(level + 1)).Within(0.001f));
+                Assert.That(tower.ShotsPerSecond, Is.EqualTo(profile.GetShotsPerSecond(level + 1)).Within(0.001f));
+                Assert.That(wallet.Balance, Is.EqualTo(expectedBalance));
             }
 
-            Assert.That(tower.GetLevel(TowerPart.Turret), Is.EqualTo(5));
-            Assert.That(tower.Damage, Is.EqualTo(40f).Within(0.001f));
-            Assert.That(tower.ShotsPerSecond, Is.EqualTo(2.6f).Within(0.001f));
-            Assert.That(wallet.Balance, Is.EqualTo(550));
             Assert.That(interactor.TryUpgrade(TowerPart.Turret), Is.EqualTo(TowerUpgradeResult.MaxLevel));
-            Assert.That(wallet.Balance, Is.EqualTo(550));
+            Assert.That(wallet.Balance, Is.EqualTo(expectedBalance));
 
-            // 塔身：血量 +20（上限與目前血量）。
+            // 塔身：血量上限與目前血量一起增加。
+            Assert.That(profile.TryGetUpgradeCost(TowerPart.Body, 1, out var bodyCost), Is.True);
             Assert.That(interactor.TryUpgrade(TowerPart.Body), Is.EqualTo(TowerUpgradeResult.Upgraded));
-            Assert.That(tower.MaxHealth, Is.EqualTo(220f));
-            Assert.That(tower.Health, Is.EqualTo(220f));
-            Assert.That(wallet.Balance, Is.EqualTo(510));
+            expectedBalance -= bodyCost;
+            Assert.That(tower.MaxHealth, Is.EqualTo(profile.GetMaxHealth(2)).Within(0.001f));
+            Assert.That(tower.Health, Is.EqualTo(profile.GetMaxHealth(2)).Within(0.001f));
+            Assert.That(wallet.Balance, Is.EqualTo(expectedBalance));
 
-            // 塔底：射程 +1（乘倍率 3）。
+            // 塔底：射程增加（已乘倍率）。
+            Assert.That(profile.TryGetUpgradeCost(TowerPart.Base, 1, out var baseCost), Is.True);
             Assert.That(interactor.TryUpgrade(TowerPart.Base), Is.EqualTo(TowerUpgradeResult.Upgraded));
-            Assert.That(tower.AttackRange, Is.EqualTo(27f).Within(0.001f));
-            Assert.That(wallet.Balance, Is.EqualTo(470));
+            expectedBalance -= baseCost;
+            Assert.That(tower.AttackRange, Is.EqualTo(profile.GetAttackRange(2)).Within(0.001f));
+            Assert.That(wallet.Balance, Is.EqualTo(expectedBalance));
 
             yield return null;
-            Assert.That(prompt.CurrentText, Does.Contain("Lv5"));
+            Assert.That(prompt.CurrentText, Does.Contain($"Lv{maxTurretLevel}"));
             Assert.That(prompt.CurrentText, Does.Contain("已滿級"));
 
             // 離開後提示消失、射程圈隱藏。
@@ -405,6 +416,7 @@ namespace CyberWizard.Tests
             Assert.That(playerAttack.AttackRange, Is.EqualTo(9f).Within(0.001f), "玩家射程 3 × 1.5 × 2。");
             Assert.That(playerIndicator.Radius, Is.EqualTo(9f).Within(0.001f));
             Assert.That(playerIndicator.SampleCount, Is.EqualTo(25));
+            Assert.That(playerIndicator.Width, Is.EqualTo(2f).Within(0.001f), "射程圈寬度統一為 2。");
             Assert.That(playerIndicator.GroundPoints.Count, Is.EqualTo(25));
             Assert.That(playerIndicator.IsAlert, Is.False, "開場沒有敵人，射程圈為白色。");
             Assert.That(playerIndicator.CurrentColor, Is.EqualTo(Color.white));
@@ -415,6 +427,24 @@ namespace CyberWizard.Tests
             {
                 Assert.That(Mathf.Abs(point.y - feet), Is.LessThan(1f), $"投影點 {point} 應貼近地面（腳底 {feet:0.00}）。");
             }
+
+            // 房屋不作為投影地面：所有房屋碰撞體都在標記 RangeIndicatorIgnored 的群組底下。
+            var buildings = GameObject.Find("Buildings");
+            Assert.That(buildings, Is.Not.Null);
+            Assert.That(buildings.GetComponent<RangeIndicatorIgnored>(), Is.Not.Null, "Buildings 應標記為射程圈投影略過。");
+            Assert.That(buildings.GetComponentsInChildren<Collider>().Length, Is.GreaterThan(0));
+
+            // 防區查詢：每座塔都在同編號的防區內，閘門前不在任何防區內。
+            var zones = Object.FindObjectsOfType<CyberWizard.Gameplay.Level.DefenseZone>();
+            Assert.That(zones.Length, Is.EqualTo(3));
+            foreach (var combat in Object.FindObjectsOfType<FixedTowerCombat>())
+            {
+                var zone = zones.Single(item => item.ZoneNumber == combat.TowerNumber);
+                Assert.That(zone.ContainsPoint(combat.transform.position), Is.True, $"{combat.name} 應在防區 {zone.ZoneNumber} 內。");
+            }
+
+            var gatePosition = Object.FindObjectOfType<BaseCore>().transform.position;
+            Assert.That(zones.Any(zone => zone.ContainsPoint(gatePosition)), Is.False, "閘門不在任何防區內。");
 
             // 塔的射程圈不需要玩家靠近，開場就持續顯示。
             var towers = Object.FindObjectsOfType<FixedTowerCombat>();
@@ -430,6 +460,7 @@ namespace CyberWizard.Tests
             foreach (var pair in indicators)
             {
                 Assert.That(pair.Value.Radius, Is.EqualTo(pair.Key.AttackRange).Within(0.001f));
+                Assert.That(pair.Value.Width, Is.EqualTo(2f).Within(0.001f), "射程圈寬度統一為 2。");
                 Assert.That(pair.Value.GroundPoints.Count, Is.EqualTo(25));
                 Assert.That(pair.Value.IsAlert, Is.False);
             }

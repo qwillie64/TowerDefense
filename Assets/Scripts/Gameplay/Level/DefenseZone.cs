@@ -33,6 +33,60 @@ namespace CyberWizard.Gameplay.Level
 
         public IReadOnlyList<Vector2> Boundary => boundary;
 
+        /// <summary>
+        /// 世界座標的點是否在防區內：轉成本地座標後，只比較水平（XZ）位置，不檢查高度。
+        /// 邊界少於 3 點時回傳 false。
+        /// </summary>
+        public bool ContainsPoint(Vector3 worldPoint)
+        {
+            var local = transform.InverseTransformPoint(worldPoint);
+            return PolygonContains(boundary, new Vector2(local.x, local.z));
+        }
+
+        /// <summary>
+        /// 點是否在多邊形內（射線交點計數法，奇數為內）。頂點順時針或逆時針皆可；
+        /// 剛好落在邊上的點結果不保證。
+        /// </summary>
+        public static bool PolygonContains(IReadOnlyList<Vector2> polygon, Vector2 point)
+        {
+            if (polygon == null || polygon.Count < 3)
+            {
+                return false;
+            }
+
+            var inside = false;
+            for (int index = 0, previous = polygon.Count - 1; index < polygon.Count; previous = index++)
+            {
+                var a = polygon[index];
+                var b = polygon[previous];
+                if ((a.y > point.y) != (b.y > point.y))
+                {
+                    var crossX = a.x + (point.y - a.y) / (b.y - a.y) * (b.x - a.x);
+                    if (point.x < crossX)
+                    {
+                        inside = !inside;
+                    }
+                }
+            }
+
+            return inside;
+        }
+
+        /// <summary>供編輯器工具修改單一邊界頂點（本地 XZ），並立即重建填色與外框。</summary>
+        public void SetBoundaryPoint(int index, Vector2 localPoint)
+        {
+            if (index < 0 || index >= boundary.Count)
+            {
+                return;
+            }
+
+            boundary[index] = localPoint;
+            if (fillMesh != null)
+            {
+                Rebuild();
+            }
+        }
+
         private void OnEnable()
         {
             // 填色網格由邊界資料即時產生，不存進場景檔。

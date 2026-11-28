@@ -10,14 +10,18 @@ namespace CyberWizard.Presentation
     /// 再把投影點連成一條環帶網格。範圍內沒有敵人時顯示待機色（白），有敵人時顯示警示色（紅）；
     /// 是否有敵人由擁有者（塔、玩家）透過 <see cref="SetAlert"/> 告知。
     /// 擁有者移動、旋轉或射程改變時才重新投影；靜止的塔只在顯示或升級時計算。
-    /// Raycast 會略過觸發器、擁有者自己的碰撞體，以及可受傷的角色（敵人、玩家、塔、閘門）。
+    /// Raycast 會略過觸發器、擁有者自己的碰撞體、可受傷的角色（敵人、玩家、塔、閘門），
+    /// 以及標記 <see cref="RangeIndicatorIgnored"/> 的物件（房屋）。
     /// </summary>
     [DisallowMultipleComponent]
     [RequireComponent(typeof(MeshFilter), typeof(MeshRenderer))]
     public sealed class GroundRangeIndicator : MonoBehaviour
     {
         /// <summary>預設圓周取樣數（暫定值）。</summary>
-        public const int DefaultSampleCount = 25;
+        public const int DefaultSampleCount = 50;
+
+        /// <summary>所有射程圈統一的環帶寬度。</summary>
+        public const float DefaultWidth = 0.05f;
 
         private static readonly int BaseColorId = Shader.PropertyToID("_BaseColor");
 
@@ -25,10 +29,10 @@ namespace CyberWizard.Presentation
         private int sampleCount = DefaultSampleCount;
 
         [SerializeField, Min(0.01f), Tooltip("環帶寬度，由射程邊緣往內延伸。")]
-        private float width = 0.3f;
+        private float width = DefaultWidth;
 
-        [SerializeField, Min(0f), Tooltip("環帶高於投影點的距離，避免被路面遮住或閃爍。")]
-        private float lift = 0.2f;
+        [SerializeField, Min(0f), Tooltip("環帶高於投影點的距離，避免被路面遮住或閃爍。需高於防區填色（平台頂面 +0.2），否則會被染成藍色。")]
+        private float lift = 0.3f;
 
         [SerializeField, Min(0.1f), Tooltip("Raycast 起點高於擁有者位置的距離。")]
         private float rayStartHeight = 20f;
@@ -57,6 +61,7 @@ namespace CyberWizard.Presentation
         private Quaternion _builtRotation;
 
         public float Radius => _radius;
+        public float Width => width;
         public int SampleCount => sampleCount;
         public bool IsAlert => _alert;
         public Color CurrentColor => _alert ? alertColor : idleColor;
@@ -64,13 +69,12 @@ namespace CyberWizard.Presentation
         /// <summary>最近一次投影得到的地面點（世界座標，未加上 lift）。</summary>
         public IReadOnlyList<Vector3> GroundPoints => _groundPoints;
 
-        /// <summary>在 owner 底下建立指示物件。</summary>
-        public static GroundRangeIndicator Create(Transform owner, string objectName, float radius, float ringWidth)
+        /// <summary>在 owner 底下建立指示物件，環帶寬度使用 <see cref="DefaultWidth"/>。</summary>
+        public static GroundRangeIndicator Create(Transform owner, string objectName, float radius)
         {
             var indicatorObject = new GameObject(objectName);
             indicatorObject.transform.SetParent(owner, false);
             var indicator = indicatorObject.AddComponent<GroundRangeIndicator>();
-            indicator.width = Mathf.Max(0.01f, ringWidth);
             indicator.SetRadius(radius);
             return indicator;
         }
@@ -243,8 +247,9 @@ namespace CyberWizard.Presentation
                 return true;
             }
 
-            // 角色與可破壞物件不是地面。
-            return collider.GetComponentInParent<IDamageable>() != null;
+            // 角色、可破壞物件與標記為略過的物件（房屋）不是地面。
+            return collider.GetComponentInParent<IDamageable>() != null
+                || collider.GetComponentInParent<RangeIndicatorIgnored>() != null;
         }
 
         private void Awake()

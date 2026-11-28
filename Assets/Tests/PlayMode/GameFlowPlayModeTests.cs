@@ -11,6 +11,7 @@ using NUnit.Framework;
 using UnityEngine;
 using UnityEngine.SceneManagement;
 using UnityEngine.TestTools;
+using UnityEngine.UI;
 #if UNITY_EDITOR
 using UnityEditor.SceneManagement;
 #endif
@@ -51,6 +52,8 @@ namespace CyberWizard.Tests
             Assert.That(menu, Is.Not.Null);
             Assert.That(menu.StartButton, Is.Not.Null);
             Assert.That(menu.QuitButton, Is.Not.Null);
+            Assert.That(MainMenuController.QuitSupported, Is.True, "編輯器與桌面平台支援離開。");
+            Assert.That(menu.QuitButton.gameObject.activeInHierarchy, Is.True, "非 WebGL 平台顯示「離開」。");
             Assert.That(menu.StartButton.transform.position.y, Is.GreaterThan(menu.QuitButton.transform.position.y),
                 "「開始」應排在「離開」上方。");
 
@@ -86,8 +89,10 @@ namespace CyberWizard.Tests
 
             var flow = Object.FindObjectOfType<GateDefenseFlow>();
             var panel = Object.FindObjectOfType<LevelResultPanel>();
+            var hud = Object.FindObjectOfType<GateDefenseHud>();
             Assert.That(panel, Is.Not.Null);
             Assert.That(panel.IsShowing, Is.False, "遊玩中不應顯示結算面板。");
+            Assert.That(hud.IsVisible, Is.True, "遊玩中顯示 HUD。");
             Assert.That(flow.CurrentPhase, Is.EqualTo(GamePhase.Wave), flow.FailureReason);
 
             // 加速並直接擊殺每個生成的敵人，讓兩波很快結束。
@@ -106,8 +111,10 @@ namespace CyberWizard.Tests
             Assert.That(flow.CurrentPhase, Is.EqualTo(GamePhase.Ended), "時限內沒有勝利。");
             Assert.That(panel.IsShowing, Is.False, "面板應在慢動作延遲之後才出現。");
 
+            Assert.That(hud.IsVisible, Is.True, "慢動作延遲期間 HUD 仍顯示。");
             yield return WaitForPanel(panel);
             Assert.That(panel.TitleText.text, Is.EqualTo("勝利"));
+            Assert.That(hud.IsVisible, Is.False, "結算面板出現後隱藏 HUD。");
             AssertControlReleased();
 
             panel.ConfirmButton.onClick.Invoke();
@@ -136,6 +143,7 @@ namespace CyberWizard.Tests
 
             yield return WaitForPanel(panel);
             Assert.That(panel.TitleText.text, Is.EqualTo("失敗"));
+            Assert.That(Object.FindObjectOfType<GateDefenseHud>().IsVisible, Is.False, "結算面板出現後隱藏 HUD。");
             AssertControlReleased();
 
             panel.RetryButton.onClick.Invoke();
@@ -237,11 +245,36 @@ namespace CyberWizard.Tests
         {
             yield return LoadScene(Level1Path);
 
+            var flow = Object.FindObjectOfType<GateDefenseFlow>();
             var pause = Object.FindObjectOfType<LevelPausePanel>();
             pause.TogglePause();
             Assert.That(Time.timeScale, Is.EqualTo(0f));
 
+            // 第一次按「中離」只開啟確認視窗，不離開關卡。
             pause.QuitButton.onClick.Invoke();
+            yield return null;
+            Assert.That(pause.IsConfirmingQuit, Is.True, "按「中離」應先顯示確認視窗。");
+            Assert.That(pause.QuitButton.gameObject.activeInHierarchy, Is.False, "確認時隱藏原本的暫停視窗。");
+            Assert.That(SceneManager.GetActiveScene().name, Is.EqualTo("Level_1"));
+            Assert.That(pause.ConfirmQuitButton.GetComponentInChildren<Text>().text, Is.EqualTo("確定中離"));
+            Assert.That(pause.CancelQuitButton.GetComponentInChildren<Text>().text, Is.EqualTo("取消"));
+
+            // 取消：回到暫停視窗，仍在暫停中。
+            pause.CancelQuitButton.onClick.Invoke();
+            Assert.That(pause.IsConfirmingQuit, Is.False);
+            Assert.That(pause.IsShowing, Is.True);
+            Assert.That(pause.QuitButton.gameObject.activeInHierarchy, Is.True);
+            Assert.That(flow.CurrentPhase, Is.EqualTo(GamePhase.Paused));
+
+            // 確認視窗中按 Esc 等同取消，不會直接恢復遊戲。
+            pause.QuitButton.onClick.Invoke();
+            pause.TogglePause();
+            Assert.That(pause.IsConfirmingQuit, Is.False);
+            Assert.That(flow.CurrentPhase, Is.EqualTo(GamePhase.Paused));
+
+            // 確定中離：回到選關。
+            pause.QuitButton.onClick.Invoke();
+            pause.ConfirmQuitButton.onClick.Invoke();
             yield return WaitForActiveScene("LevelSelect");
             Assert.That(Time.timeScale, Is.EqualTo(1f), "從暫停中離後時間倍率應還原。");
         }

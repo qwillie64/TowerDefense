@@ -87,7 +87,7 @@ namespace CyberWizard.Gameplay.Towers
             _healthBar.SetValue(Health, MaxHealth);
 
             // 射程圈持續顯示；塔被摧毀時才隱藏。
-            _rangeIndicator = GroundRangeIndicator.Create(transform, "Attack Range Circle", AttackRange, 0.4f);
+            _rangeIndicator = GroundRangeIndicator.Create(transform, "Attack Range Circle", AttackRange);
         }
 
         public int GetLevel(TowerPart part) => _levels[(int)part];
